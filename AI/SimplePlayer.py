@@ -1,5 +1,3 @@
-import random
-from Game.HandHelpers import HandHelpers
 from Game.Player import Player
 
 class SimplerPlayer(Player):
@@ -7,36 +5,39 @@ class SimplerPlayer(Player):
     def __init__(self, name='default'):
         super().__init__(name)
 
-    def play(self, opponents_card=None):
+    def _select_action(self, legal_actions):
 
-        have_marriages, marriage_suits = HandHelpers.available_marriages(self.hand)
-        leader = opponents_card is None
+        selected_action = None
 
-        # Noddy play the queen of a marriage if we have it
-        if have_marriages and leader:
-            marriage_suit = marriage_suits.pop()
-            queen = None
-            king = None
-            for card in self.hand:
-                if card.suit == marriage_suit:
-                    if card.value == 3:
-                        queen = card
-                    elif card.value == 4:
-                        king = card
+        # Swap trump if we can
+        for action in legal_actions:
+            if action.swap_trump is True:
+                selected_action = action
+                break
 
-            self.game.declare_marriage(self, queen, king)
-            self.check_and_declare_win()
+        # Close the deck for shits
+        for action in legal_actions:
+            if action.close_deck is True and self.game_points > 50:
+                selected_action = action
+                break
 
-            for item, card in enumerate(self.hand):
-                if card.value == 3 and card.suit == marriage_suit:
-                    return_card = self.hand.pop(item)
+        # Declare marriage and play queen if we can
+        if selected_action is None:
+            for action in legal_actions:
+                if action.marriage is not None:
+                    selected_action = action
                     break
 
-        # Random pop
-        else:
-            return_card = self.hand.pop()
+        # Else play highest card
+        highest_card_value = 0
+        if selected_action is None:
+            for action in legal_actions:
+                if action.card is not None:
+                    if action.card.value > highest_card_value:
+                        highest_card_value = action.card.value
+                        selected_action = action
 
-        return return_card
+        if selected_action is None:
+            raise Exception('Pick an action fuck-wit')
 
-
-
+        return selected_action

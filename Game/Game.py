@@ -31,7 +31,7 @@ class Game:
         self._following_player = None
         self._hand_winner = None
         self._trump_card = None
-        self._deck_closed = False
+        self.deck_closed = False
         self._deck_closed_by_player = False
         self._deck_closer = None
         self._deck_closer_points = 0
@@ -62,28 +62,19 @@ class Game:
     # Player must be leader and immediate play card
     # Points for marriage only registered once any normal trick is won
     # If player declares 66 at this point, the game terminates immediately
-    def declare_marriage(self, player, queen_card, king_card):
+    def declare_marriage(self, player, marriage):
 
-        logging.debug('Marriage declared by {a} {b} {c}'.format(a=player.name, b=queen_card, c=king_card))
+        logging.debug('Marriage declared by {a} {b} {c}'.format(a=player.name, b=marriage.queen, c=marriage.king))
         if player is not self._leading_player:
             raise Exception('Invalid marriage - Only leading player can declare marriage')
-        if queen_card.value != 3 and king_card.value != 4:
-            raise Exception('Invalid marriage - cards submitted: {a}, {b}'.format(a=queen_card, b=king_card))
-        if queen_card.suit != king_card.suit:
-            raise Exception('Invalid marriage - not of the same suit: {a}, {b}'.format(a=queen_card, b=king_card))
 
-        marriage_suit = queen_card.suit
-        if marriage_suit == self._trump_card.suit:
-            marriage_value = 40
-        else:
-            marriage_value = 20
+        marriage.set_points(self._trump_card.suit)
 
-        marriage = Marriage(player, queen_card, king_card, marriage_value)
-        self._marriages[marriage_suit] = marriage
+        self._marriages[marriage.suit] = marriage
 
         # Award player points immediately if possible
         if player.game_points != 0:
-            self._award_game_points(player, marriage_value)
+            self._award_game_points(player, marriage.points)
             marriage.points_awarded = True
 
     # Handle a player closing the deck
@@ -91,17 +82,22 @@ class Game:
     # calc points on offer
     def declare_deck_closed(self, player):
 
+        logging.debug('Player closing deck {a}'.format(a=player))
         if self._deck_closed_by_player:
             raise Exception("Deck already closed")
 
         if player is not self._leading_player:
             raise Exception("non-leading player can't close deck")
 
-        self._deck_closed = True
+        self.deck_closed = True
         self._deck_closed_by_player = True
         self._deck_closer = player
         self._deck_closer_points = self._calc_match_points_on_offer(player=player, closer=True)
         self._deck_non_closer_points = self._calc_match_points_on_offer(player=player, closer=False)
+
+    def swap_trump(self, player, card):
+        player.receive_card(self._trump_card)
+        self._trump_card = card
 
     def _play_single_game(self):
 
@@ -143,7 +139,7 @@ class Game:
         # Validate marriage card played if declared
         marriage = self._marriages.unplayed_marriage()
         if marriage is not None:
-            marriage.play_card(leading_card)
+            marriage.notify_card_played(leading_card)
 
         # If leader declares victory after marriage, no further actions necessary
         if self._have_game_winner:
@@ -171,7 +167,7 @@ class Game:
         self._award_game_points(self._hand_winner, points, [leading_card, following_card])
 
         # Deal extra cards, winner first
-        if not self._deck_closed:
+        if not self.deck_closed:
             self._give_cards(self._hand_winner, 1)
             self._give_cards(loser, 1)
 
@@ -248,7 +244,7 @@ class Game:
     def _give_cards(self, player, number):
         for x in range(number):
             if len(self._deck) == 0 and number == 1:
-                self._deck_closed = True
+                self.deck_closed = True
                 player.receive_card(self._trump_card)
             else:
                 player.receive_card(self._deck.pop())

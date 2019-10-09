@@ -16,7 +16,7 @@ class Marriages(dict):
         return_points = 0
         for i, marriage in self.items():
             if not marriage.points_awarded and player is marriage.player:
-                return_points += marriage.value
+                return_points += marriage.points
                 marriage.points_awarded = True
 
         return return_points

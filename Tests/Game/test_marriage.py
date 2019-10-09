@@ -10,7 +10,7 @@ class TestMarriage(TestCase):
         king_card = Card(0, 4)
         marriage = Marriage(None, queen_card, king_card, 0)
 
-        marriage.play_card(queen_card)
+        marriage.notify_card_played(queen_card)
         self.assertEqual(marriage.cards, [king_card])
         self.assertEqual(marriage.declared_but_not_played, False)
 
@@ -22,7 +22,7 @@ class TestMarriage(TestCase):
         king_card = Card(0, 4)
         marriage = Marriage(None, queen_card, king_card, 0)
 
-        marriage.play_card(king_card)
+        marriage.notify_card_played(king_card)
         self.assertEqual(marriage.cards, [queen_card])
         self.assertEqual(marriage.declared_but_not_played, False)
 
@@ -35,4 +35,4 @@ class TestMarriage(TestCase):
         other = Card(0, 2)
         marriage = Marriage(None, queen_card, king_card, 0)
 
-        self.assertRaises(Exception, marriage.play_card, other)
+        self.assertRaises(Exception, marriage.notify_card_played, other)

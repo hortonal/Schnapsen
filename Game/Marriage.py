@@ -2,15 +2,25 @@
 
 class Marriage:
 
-    def __init__(self, player, queen_card, king_card, value):
+    def __init__(self, player, queen, king):
+        if queen.suit != king.suit:
+            raise Exception('Invalid Marriage - suits not equal')
+        if queen.value != 3:
+            raise Exception('Invalid marriage - queen not a queen')
+        if king.value != 4:
+            raise Exception('Invalid marriage - king not a king')
+
         self.player = player
-        self.cards = [queen_card, king_card]
+        self.suit = queen.suit
+        self.queen = queen
+        self.king = king
+        self.cards = [queen, king]  # Purely for convenience
         self.declared_but_not_played = True
-        self.value = value
+        self.points = 0  # Set by game
         self.points_awarded = False
 
     # Expect card to be in marriage. Exception raised if not
-    def play_card(self, card):
+    def notify_card_played(self, card):
         card_found = False
         for i, iter_card in enumerate(self.cards):
             if iter_card == card:
@@ -25,3 +35,9 @@ class Marriage:
 
     def card_in_marriage(self, card):
         return card in self.cards
+
+    def set_points(self, trump_suit):
+        if self.suit == trump_suit:
+            self.points = 40
+        else:
+            self.points = 20
