@@ -7,7 +7,8 @@ from Game.Action import Action
 
 
 class Player:
-
+    type_AI = 0
+    type_human = 1
     def __init__(self, name):
         self.name = name
         self.hand = Hand()
@@ -20,7 +21,8 @@ class Player:
         self.opponent_game_points = 0
         self.game = None  # Assigned by game controller
         self._trump = None
-        self._legal_actions = []
+        self.legal_actions = []
+        self.type = Player.type_AI  # Must be overridden for humans
 
     def ready_for_next_match(self):
         self.match_points = 0
@@ -36,37 +38,13 @@ class Player:
         self.opponent_game_points = 0
         self._trump = None
 
-    def _select_action(self, legal_actions):
+    # Legal actions are controlled by the game
+    # Just pick one
+    def select_action(self):
         raise Exception('Must be implemented by child')
 
     def receive_card(self, card):
         self.hand.append(card)
-
-    # Core play action sequence
-    def play(self, opponents_card=None):
-
-        card = None
-        while card is None:
-            # Perform actions until play card
-            legal_actions = self.__evaluate_legal_actions(opponents_card is None,
-                                                          opponents_card)
-            card = self.__do_action(self._select_action(legal_actions))
-        return card
-
-    def __swap_trump(self):
-
-        if self.game.deck_closed:
-            raise Exception('Player can not swap trump as deck is closed')
-
-        if self.hand.has_card(self._trump.suit, 2):
-            jack = self.hand.pop_card(self._trump.suit, 2)
-        else:
-            raise Exception('Player can not swap trump as requisite card not in hand')
-
-        self.game.swap_trump(self, jack)
-
-    def __close_deck(self):
-        self.game.declare_deck_closed(self)
 
     def notify_trump(self, card):
         self._trump = card
@@ -92,7 +70,7 @@ class Player:
 
     def _check_and_declare_win(self):
         if self._enough_points():
-            self.game.declare_win(self)
+            self.game.declare_game_win(self)
 
     def _enough_points(self):
         return self.game_points >= 66
@@ -100,19 +78,8 @@ class Player:
     def has_cards_left(self):
         return len(self.hand) != 0
 
-    def __play_marriage(self, marriage, card):
-        self.game.declare_marriage(self, marriage)
-        return self.__play_card(card)
-
-    def __play_card(self, card):
-        for item, iter_card in enumerate(self.hand):
-            if iter_card.value == card.value and \
-               iter_card.suit == card.suit:
-                return self.hand.pop(item)
-        raise Exception('Card not in hand')
-
     # This ugly AF... But it works
-    def __evaluate_legal_actions(self, am_leader, opponents_card):
+    def evaluate_legal_actions(self, am_leader, opponents_card):
 
         legal_actions = []
 
@@ -155,26 +122,11 @@ class Player:
                 if more_legal_actions:
                     for card in self.hand:
                         legal_actions.append(Action(card=card))
-        return legal_actions
 
-    def __do_action(self, action):
-
-        return_card = None
-        if action.swap_trump is True:
-            self.__swap_trump()
-
-        if action.close_deck is True:
-            self.__close_deck()
-
-        if action.marriage is not None:
-            return_card = self.__play_marriage(action.marriage, action.card)
-        elif action.card is not None:
-            return_card = self.__play_card(action.card)
-
-        return return_card
+        self.legal_actions = legal_actions
 
     def _print_str_name(self):
-        return "SimplerPlayer: " + self.name
+        return self.name
 
     def __repr__(self):
         return self._print_str_name()

@@ -14,6 +14,8 @@ class Card:
     Clubs = 1
     Hearts = 2
     Diamonds = 3
+    Back = 4  # Special suit for GUI
+    Empty = 5  # Special suit for GUI
 
     Values = {
         Ten: 'Ten',

@@ -1,0 +1,1 @@
+python -m cProfile -s cumtime App/main.py > profile.txt
