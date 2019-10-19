@@ -9,8 +9,10 @@ from Game.Action import Action
 class Player:
     type_AI = 0
     type_human = 1
-    def __init__(self, name):
+
+    def __init__(self, name, automated=True):
         self.name = name
+        self.automated = automated
         self.hand = Hand()
         self.cards_won = []
         self.match_points = 0
@@ -23,6 +25,12 @@ class Player:
         self._trump = None
         self.legal_actions = []
         self.type = Player.type_AI  # Must be overridden for humans
+
+    # Child player class must implement this method and return an action
+    # The player or some other controller should probably first ask for the
+    # legal actions to evaluated (but an illegal action is handled by the game controller)
+    def select_action(self):
+        raise Exception('Must be implemented by child')
 
     def ready_for_next_match(self):
         self.match_points = 0
@@ -37,11 +45,6 @@ class Player:
         self.opponent_cards_won = []
         self.opponent_game_points = 0
         self._trump = None
-
-    # Legal actions are controlled by the game
-    # Just pick one
-    def select_action(self):
-        raise Exception('Must be implemented by child')
 
     def receive_card(self, card):
         self.hand.append(card)
@@ -73,7 +76,7 @@ class Player:
             self.game.declare_game_win(self)
 
     def _enough_points(self):
-        return self.game_points >= 66
+        return self.game_points >= self.game.game_point_limit
 
     def has_cards_left(self):
         return len(self.hand) != 0

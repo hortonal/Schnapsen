@@ -2,7 +2,6 @@
 from Game.Deck import Deck
 from Game.Marriages import Marriages
 import logging
-import sys
 import random
 from Game.Player import Player
 
@@ -11,7 +10,7 @@ class Game:
 
     def __init__(self, player_a, player_b, match_point_limit=7):
 
-        logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+        self._logger = logging.getLogger()
         # Register game instance in players
         player_a.game = self
         player_b.game = self
@@ -19,16 +18,18 @@ class Game:
         self._player_a = player_a
         self._player_b = player_b
         self._players = [player_a, player_b]
-        self._match_point_limit = match_point_limit
+        self.game_point_limit = 66
+        self.match_point_limit = match_point_limit
         self._deck = []
         self.__init_match_vars()
         self.__init_game_vars()
+        self.on_event_callback_card_played = None  # Func set externally for event handling
 
     def __init_match_vars(self):
         self._player_with_1st_deal = None
         self._player_with_2nd_deal = None
         for player in self._players:
-            player.match_points = 0
+            player.ready_for_next_match()
         self._define_first_deal()
         self.match_winner = None
         self.have_match_winner = False
@@ -53,11 +54,6 @@ class Game:
             player.ready_for_next_game()
         self._marriages = Marriages()
 
-    def play_AI(self):
-        self.new_match()
-        while not self.have_match_winner:
-            self.new_game()
-
     def new_match(self):
         self.__init_match_vars()
 
@@ -69,22 +65,31 @@ class Game:
         self.leading_player = self._player_with_1st_deal
         self._following_player = self._player_with_2nd_deal
         self.active_player = self.leading_player
-        self.continue_actions()  # If AI vs. AI, whole game plays
 
-    def continue_actions(self):
-        self.__evaluate_active_player_actions()
-        if not self.have_game_winner:
-            while self.active_player.type is not Player.type_human and len(self.active_player.legal_actions) > 0:
+    def play_automated(self):
+        self.new_match()
+        while not self.have_match_winner:
+            self.new_game()
+            while not self.have_game_winner:
+                self.progress_automated_actions()  # If AI vs. AI, whole game plays
+
+    # Exits if action results in game winner
+    def progress_automated_actions(self):
+        while self.active_player.automated and not self.have_game_winner:
+            self._logger.log(logging.DEBUG, 'performing next AI action')
+            self.evaluate_active_player_actions()
+            if len(self.active_player.legal_actions) > 0:
                 self.do_next_action(self.active_player, self.active_player.select_action())
-                self.__evaluate_active_player_actions()
 
-    def __evaluate_active_player_actions(self):
+    def evaluate_active_player_actions(self):
         self.active_player.evaluate_legal_actions(self.active_player == self.leading_player,
                                                   self.leading_card)
 
     def do_next_action(self, player, action):
 
-        logging.debug('Action ' + player.name + ', card: ' + str(action.card is not None) + ', marriage ' + str(action.marriage is not None) + ', close deck: ' + str(action.close_deck) + ', swap_trump: ' + str(action.swap_trump))
+        # Check logging level first to avoid making the string unnecessarily
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.log(logging.DEBUG, 'Action ' + player.name + ', card: ' + str(action.card is not None) + ', marriage ' + str(action.marriage is not None) + ', close deck: ' + str(action.close_deck) + ', swap_trump: ' + str(action.swap_trump))
 
         play_card = None
         if action.swap_trump is True:
@@ -103,10 +108,16 @@ class Game:
             if play_card is not None:
                 if player is self.leading_player:
                     self.leading_card = play_card
-                    self.active_player = self._get_other_player(self.active_player)
+                    self.__call_back_hand_played()
+                    self.active_player = self.get_other_player(self.active_player)
                 else:
                     self.following_card = play_card
+                    self.__call_back_hand_played()
                     self.__end_of_hand()
+
+    def __call_back_hand_played(self):
+        if self.on_event_callback_card_played is not None:
+            self.on_event_callback_card_played()
 
     def __end_of_hand(self):
         self._hand_winner = self.leading_player
@@ -117,18 +128,20 @@ class Game:
             if self.following_card.suit == self.trump_card.suit:
                 self._hand_winner = self._following_player
 
-        loser = self._get_other_player(self._hand_winner)
+        loser = self.get_other_player(self._hand_winner)
 
         points = self.leading_card.value + self.following_card.value + self._marriages.award_points(self._hand_winner)
 
         self._award_game_points(self._hand_winner, points, [self.leading_card, self.following_card])
 
-        logging.debug(self._hand_winner.name + ' wins')
+        self._logger.debug(self._hand_winner.name + ' wins')
 
         # Deal extra cards, winner first
         if not self.deck_closed:
             self._give_cards(self._hand_winner, 1)
             self._give_cards(loser, 1)
+
+
 
         # Set winner to leading player
         self.leading_card = None
@@ -139,7 +152,7 @@ class Game:
 
         if len(self._player_a.hand) == 0:
             if not self.have_game_winner:
-                logging.debug('win by default')
+                self._logger.debug('win by default')
                 self.declare_game_win(self._hand_winner)
 
     # called by player to notify game of its alleged victory
@@ -148,16 +161,16 @@ class Game:
         # Make independent count of player's points...
         self.have_game_winner = True
         self.game_winner = player
-        self._game_loser = self._get_other_player(self.game_winner)
+        self._game_loser = self.get_other_player(self.game_winner)
         self._award_match_points()
         self._switch_deals_between_games()
         self.__check_and_handle_match_win()
 
     def __check_and_handle_match_win(self):
-        if self._player_a.match_points >= self._match_point_limit:
+        if self._player_a.match_points >= self.match_point_limit:
             self.match_winner = self._player_a
             self.have_match_winner = True
-        if self._player_b.match_points >= self._match_point_limit:
+        if self._player_b.match_points >= self.match_point_limit:
             self.match_winner = self._player_b
             self.have_match_winner = True
 
@@ -167,7 +180,8 @@ class Game:
     # If player declares 66 at this point, the game terminates immediately
     def __declare_marriage(self, player, marriage):
 
-        logging.debug('Marriage declared by {a} {b} {c}'.format(a=player.name, b=marriage.queen, c=marriage.king))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug('Marriage declared by {a} {b} {c}'.format(a=player.name, b=marriage.queen, c=marriage.king))
         if player is not self.leading_player:
             raise Exception('Invalid marriage - Only leading player can declare marriage')
 
@@ -191,8 +205,8 @@ class Game:
     # Said player must be current leader
     # calc points on offer
     def __close_deck(self, player):
-
-        logging.debug('Player closing deck {a}'.format(a=player))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug('Player closing deck {a}'.format(a=player))
         if self._deck_closed_by_player:
             raise Exception("Deck already closed")
 
@@ -240,7 +254,7 @@ class Game:
             player.notify_trump(card)
 
     def _calc_match_points_on_offer(self, player, closer=True):
-        other_player = self._get_other_player(player)
+        other_player = self.get_other_player(player)
 
         # Default award for a single game
         match_points = 1
@@ -292,5 +306,5 @@ class Game:
             else:
                 player.receive_card(self._deck.pop())
 
-    def _get_other_player(self, player):
+    def get_other_player(self, player):
         return self._player_b if player is self._player_a else self._player_a

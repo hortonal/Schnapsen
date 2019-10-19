@@ -1,21 +1,28 @@
 """Main file (test for now)"""
 import logging
+import sys
+import Game.GameHelpers as GameHelpers
 from Game.Game import Game
 from AI.RandomPlayer import RandomPlayer
 from AI.BetterPlayer import BetterPlayer
 from AI.HumanPlayer import HumanPlayer
+#from AI.NNSimple import NNSimple
 from GUI.GUI import GUI
 
-
 if __name__ == "__main__":
-    logging.debug('Starting main')
-    logging.getLogger().setLevel(logging.INFO)
+
+    logging.basicConfig(stream=sys.stderr)
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.debug('Starting main')
 
     betty = BetterPlayer
     randy = RandomPlayer
     human = HumanPlayer
+#    nanny = NeuralNetwork
 
     player1 = human()
+    # player1 = nanny()
     # player1 = randy()
     player2 = betty()
     player1_wins = 0
@@ -33,20 +40,4 @@ if __name__ == "__main__":
         human.UI.mainloop()
 
     else:
-        number_of_ai_games = 1000
-
-        for i in range(number_of_ai_games):
-            game.play_AI()
-
-            if game.match_winner is player1:
-                player1_wins += 1
-            else:
-                player2_wins += 1
-
-            logging.debug('{a} vs {b}, winner is {c}. Running Total: {d}:{e}'.format(
-                a=player1.name, b=player2.name, c=game.match_winner.name,
-                d=player1_wins, e=player2_wins))
-
-        logging.info('{a} vs {b}: {d}:{e}'.format(
-            a=player1.name, b=player2.name, c=game.match_winner.name,
-            d=player1_wins, e=player2_wins))
+        GameHelpers.play_automated_games(game, 1000)
