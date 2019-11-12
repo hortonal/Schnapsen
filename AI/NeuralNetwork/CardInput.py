@@ -6,4 +6,5 @@ class CardInput:
         self.in_opponent_hand = False
         self.won_by_me = False
         self.won_by_opponent = False
+        self.is_leading_card = False
 

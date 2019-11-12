@@ -33,6 +33,7 @@ class GUI:
         self.__build_play_space()
         # This feels hacky:
         self.game.on_event_callback_card_played = self.__callback_cards_played
+        self._cheat_mode = False
 
     def __build_play_space(self):
         self._play_button = ttk.Button(self.window, text='Play', command=self.__play_match)
@@ -53,6 +54,8 @@ class GUI:
         player_info_frame.pack(side=LEFT)
         opponent_info_frame.pack(side=LEFT)
         deck_info_frame.pack(side=BOTTOM)
+        cheat_mode_button = ttk.Button(deck_frame, text='Cheat Mode', command=self.__togle_cheat_mode)
+        cheat_mode_button.pack(side=TOP)
         self._close_deck_button = ttk.Button(deck_frame, text='Close_deck', command=self.__close_deck)
         self._close_deck_button.pack(side=TOP)
         deck_cards_frame = Frame(deck_frame)
@@ -157,10 +160,13 @@ class GUI:
         # Update opponents cards
         hand_size = len(self.opponent.hand)
         for i in range(5):
+            card = None
             if i < hand_size:
-                self._oppenent_cards[i].update_card(self._card_back)
-            else:
-                self._oppenent_cards[i].update_card(None)
+                if self._cheat_mode:
+                    card = self.opponent.hand[i]
+                else:
+                    card = self._card_back
+            self._oppenent_cards[i].update_card(card)
 
     def __points_string(self, game_points, match_points):
         return """Game: {a} \nMatch: {b}""".format(a=game_points, b=match_points)
@@ -234,3 +240,7 @@ class GUI:
                 messagebox.showinfo(title='Match Winner!!!', message='Winner is: ' +
                                     self.game.match_winner.name + '. Starting new game')
                 self.__play_match()
+
+    def __togle_cheat_mode(self):
+        self._cheat_mode = not self._cheat_mode
+        self.__update_screen()

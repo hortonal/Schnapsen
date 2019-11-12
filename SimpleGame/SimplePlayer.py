@@ -4,9 +4,9 @@ _select_action method to notify the game what it's doing. All other player logic
 and game controller interaction handled in this class"""
 from Game.Hand import Hand
 from Game.Action import Action
+import random
 
-
-class Player:
+class SimplePlayer:
 
     def __init__(self, name, automated=True, requires_model_load=False):
         self.name = name
@@ -24,12 +24,6 @@ class Player:
         self._trump = None
         self.legal_actions = []
 
-    # Child player class must implement this method and return an action
-    # The player or some other controller should probably first ask for the
-    # legal actions to evaluated (but an illegal action is handled by the game controller)
-    def select_action(self):
-        raise Exception('Must be implemented by child')
-
     def ready_for_next_match(self):
         self.match_points = 0
         self.opponent_match_points = 0
@@ -46,9 +40,6 @@ class Player:
 
     def receive_card(self, card):
         self.hand.append(card)
-
-    def notify_trump(self, card):
-        self._trump = card
 
     def notify_game_points_won(self, player, points, cards=None):
         if player is self:
@@ -79,50 +70,11 @@ class Player:
     def has_cards_left(self):
         return len(self.hand) != 0
 
-    # This ugly AF... But it works
+    # All cards are valid
     def evaluate_legal_actions(self, am_leader, opponents_card):
-
         legal_actions = []
-
-        if am_leader:
-            if self.hand.has_card(self._trump.suit, 2) and not self.game.deck_closed:
-                legal_actions.append(Action(swap_trump=True))
-
-            if not self.game.deck_closed:
-                legal_actions.append(Action(close_deck=True))
-
-            have_marriages, marriages = self.hand.available_marriages(self)
-            for marriage in marriages:
-                legal_actions.append(Action(card=marriage.queen,
-                                            marriage=marriage))
-                legal_actions.append(Action(card=marriage.king,
-                                            marriage=marriage))
-
-            for card in self.hand:
-                legal_actions.append(Action(card=card))
-        else:
-            if not self.game.deck_closed:
-                for card in self.hand:
-                    legal_actions.append(Action(card=card))
-            else:
-                more_legal_actions = True
-                for card in self.hand.cards_of_same_suit(opponents_card.suit, opponents_card.value):
-                    legal_actions.append(Action(card=card))
-                    more_legal_actions = False
-
-                if more_legal_actions:
-                    for card in self.hand.cards_of_same_suit(opponents_card.suit):
-                        legal_actions.append(Action(card=card))
-                        more_legal_actions = False
-
-                if more_legal_actions:
-                    for card in self.hand.cards_of_same_suit(self._trump.suit):
-                        legal_actions.append(Action(card=card))
-                        more_legal_actions = False
-
-                if more_legal_actions:
-                    for card in self.hand:
-                        legal_actions.append(Action(card=card))
+        for card in self.hand:
+            legal_actions.append(Action(card=card))
 
         self.legal_actions = legal_actions
 
@@ -134,3 +86,35 @@ class Player:
 
     def __str__(self):
         return self._print_str_name()
+
+    def select_action(self):
+        return random.choice(self.legal_actions)
+
+    def select_action_better(self):
+
+        selected_action = None
+
+        if self.game.leading_player is self:
+            # Play highest card if leader
+            highest_card_value = 0
+            if selected_action is None:
+                for action in self.legal_actions:
+                    if action.card is not None:
+                        if action.card.value > highest_card_value:
+                            highest_card_value = action.card.value
+                            selected_action = action
+        else:
+            # Can I win hand? Why wouldn't I want to?
+            # Play lowest card if follower
+            lowest_card_value = 100
+            if selected_action is None:
+                for action in self.legal_actions:
+                    if action.card is not None:
+                        if action.card.value < lowest_card_value:
+                            lowest_card_value = action.card.value
+                            selected_action = action
+
+        if selected_action is None:
+            raise Exception('Pick an action fuck-wit')
+
+        return selected_action

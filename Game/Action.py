@@ -29,3 +29,17 @@ class Action:
 
     def __str__(self):
         return self._print_str_name()
+
+    def __eq__(self, other):
+        """Overrides the default implementation"""
+        if isinstance(other, Action):
+            return self.card == other.card and self.marriage == other.marriage and \
+                   self.swap_trump == other.swap_trump and self.close_deck == other.close_deck
+        return NotImplemented
+
+    def __ne__(self, other):
+        """Overrides the default implementation (unnecessary in Python 3)"""
+        x = self.__eq__(other)
+        if x is not NotImplemented:
+            return not x
+        return NotImplemented

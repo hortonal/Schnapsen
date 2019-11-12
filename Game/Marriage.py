@@ -41,3 +41,16 @@ class Marriage:
             self.points = 40
         else:
             self.points = 20
+
+    def __eq__(self, other):
+        """Test only for card equivalence"""
+        if isinstance(other, Marriage):
+            return self.queen == other.queen and self.king == other.king
+        return NotImplemented
+
+    def __ne__(self, other):
+
+        x = self.__eq__(other)
+        if x is not NotImplemented:
+            return not x
+        return NotImplemented

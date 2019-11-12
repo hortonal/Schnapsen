@@ -1,15 +1,25 @@
 """
 Lifted heavily from https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 """
-from AI.NeuralNetwork.SimpleLinear.LinearModule import LinearModule
-from AI.NeuralNetwork.IOHelpers import IOHelpers
-from AI.NeuralNetwork.ReplayMemory import ReplayMemory, Transition
 import torch
-import torch.optim as optim
 import torch.nn.functional as F
+import time
+import random
+import logging
+import math
+import Game.GameHelpers as GameHelpers
+from AI.NeuralNetwork.ReplayMemory import ReplayMemory, Transition
+from AI.NeuralNetwork.SimpleLinear.IOHelpers import IOHelpers
+from AI.NeuralNetwork.SimpleLinear.LinearModule import LinearModule
 
-BATCH_SIZE = 500
-GAMMA = 0.9
+GAMMA = 0.99
+REWARD_COST_OF_LIVING = -0
+HIDDEN_LAYER_SIZE = 250
+LEARNING_RATE = 0.0001
+
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 100000
 
 
 class Trainer:
@@ -18,50 +28,56 @@ class Trainer:
         self.game = game
         self.player = player
         self.player.automated = False    # Override the automatic action behaviour when training
-
+        self.memory = None
+        self.logger = logging.getLogger()
+        self.actions_selected = 0
+        self.optimizer_count = 0
+        self.reference_model = None
+        self._last_loss = 0
         mock_inputs = IOHelpers.create_input_from_game_state(game, player)
-        hidden_layer_size = 1000
+
         input_size = len(mock_inputs)
-        # Play, play_marriage + swap trump + close deck = 44 possible actions.
-        output_size = 20 * 2 + 2
+        output_size = len(IOHelpers.output_actions)
+
         # Define simple NN layers
-        self.model = LinearModule(input_size, hidden_layer_size, output_size)
-        # Maybe use this for stability?
-        # self.reference_model = LinearModule(input_size, hidden_layer_size, output_size)
-        learning_rate = 1e-3
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.model = LinearModule(input_size, HIDDEN_LAYER_SIZE, output_size)
+        self.player.model = self.model
+        self.reference_model = LinearModule(input_size, HIDDEN_LAYER_SIZE, output_size)
+        self.__update_reference_model()
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
+
+    def initialise_with_players_model(self):
+        self.model = self.player.model
+        self.__update_reference_model()
 
     def __player_reward(self, prior_game_points, prior_match_points, game_points, match_points):
-        # won match is worth 1, won game point is 1/66.
-        # The game lasting another hand is worth a negative amount (to encourage quick wins where possible)
-        life_decay = -.05
-        return life_decay + (match_points - prior_match_points) + (game_points - prior_game_points) / self.game.game_point_limit
+        return torch.tensor(REWARD_COST_OF_LIVING +
+                            (match_points - prior_match_points) + (game_points - prior_game_points) / self.game.game_point_limit
+                            , dtype=torch.float)
 
-    def __optimize(self):
-        if len(self.memory) < BATCH_SIZE:
+    def __optimize(self, batch_size):
+        if len(self.memory) < batch_size:
             return
-        transitions = self.memory.sample(BATCH_SIZE)
 
+        # Prepare batch replay
+        transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
+        state_batch = torch.cat(batch.state).view(batch_size, -1)   # torch.cat()?
+        action_batch = torch.cat(batch.action).view(batch_size, -1)
+        next_state_batch = torch.cat(batch.next_state).view(batch_size, -1)
+        reward_batch = torch.tensor(batch.reward)
 
-        state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
-        next_state_batch = torch.cat(batch.next_state)
-
-        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
-        # columns of actions taken. These are the actions which would've been taken
-        # for each batch state according to model
+        # Build Q(S,A) map
         state_action_values = self.model(state_batch).gather(1, action_batch)
-
-        # Compute V(s_{t+1}) for all next states.
-        # Could use a reference net here instead for stability
-        next_state_values = self.model(next_state_batch).max(1)[0].detach()
-        # Compute the expected Q values
+        # Use the reference model to decide future state value (for stability apparently...)
+        # next_state_values = self.model(next_state_batch).max(1)[0].detach()
+        next_state_values = self.reference_model(next_state_batch).max(1)[0].detach()
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
         # Compute Huber loss
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        self._last_loss = float(loss)
 
         # Optimize the model
         self.optimizer.zero_grad()
@@ -69,34 +85,77 @@ class Trainer:
         for param in self.model.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+        self.optimizer_count += 1
 
-    def train(self, number_actions=10000):
+    def start_new_match(self):
+        self.game.new_match()
+        self.start_new_game()
 
-        memory = ReplayMemory(500)
+    def start_new_game(self):
+        self.game.new_game()
+        # Increment state if action not on NN player
+        self.game.progress_automated_actions()
 
-        for i in range(number_actions):
+    def __update_reference_model(self):
+        self.reference_model.load_state_dict(self.model.state_dict())
 
-            # Increment state if action not on NN player
-            self.game.progress_automated_actions()
+    def train(self, number_actions=10000, training_time=0, memory_size=1000, batch_size=100, update_reference_model=1000):
 
-            prior_game_points = self.player.game_points
-            prior_match_points = self.player.match_points
+        self.memory = ReplayMemory(memory_size)
+        self.start_new_match()
 
-            state = IOHelpers.create_input_from_game_state(self.game, self.player)
-            # Call NN to give me next move
-            action = self.model(state)
-            self.game.do_next_action(self.player, action)
-            next_state = IOHelpers.create_input_from_game_state(self.game, self.player)
-            reward = self.__player_reward(prior_game_points, prior_match_points,
-                                          self.player.game_points, self.player.match_points)
+        if training_time > 0:
+            now = time.time()
+            while time.time() - now < training_time:
+                self.single_training_loop(batch_size)
 
-            memory.push(state, action, next_state, reward)
+        else:
+            for i in range(number_actions):
+                self.single_training_loop(batch_size)
+                # Every few thousand epochs save out the trained model to disk
+                # (so we can break the program without losing progress)
+                if i % update_reference_model == 0:
+                    self.__update_reference_model()
+                    logging.info(str(i) + ' actions run. Optimizer count: ' + str(self.optimizer_count) + '. loss: ' + str(self._last_loss))
+                    self.player.save_model()
+                    self.start_new_match()
+                    self.player.automated = True
+                    GameHelpers.play_automated_games(self.game, 100)
+                    self.player.automated = False
+                    self.start_new_match()
 
-            self.__optimize()
+    def select_action(self, state):
+        # Call NN to give me next move
+        # todo: implement epsilon greedy
+        sample = random.random()
+        eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * self.actions_selected / EPS_DECAY)
+        self.actions_selected += 1
 
-            # Update game state as necessary
-            if self.game.have_match_winner:
-                self.game.new_match()
-                self.game.new_game()
-            if self.game.have_game_winner:
-                self.game.new_game()
+        if sample > eps_threshold:
+            return IOHelpers.get_random_legal_action(self.game, self.player)
+        else:
+            with torch.no_grad():
+                q_values = self.model(state)
+            return IOHelpers.policy(q_values, self.game, self.player)
+
+    def single_training_loop(self, batch_size):
+
+        prior_game_points = self.player.game_points
+        prior_match_points = self.player.match_points
+        state = IOHelpers.create_input_from_game_state(self.game, self.player)
+        action_id, action = self.select_action(state)
+
+        # Apply action an perform any opponent actions. I.e. continue game until out turn to act
+        self.game.do_next_action(self.player, action)
+        self.game.progress_automated_actions()
+
+        next_state = IOHelpers.create_input_from_game_state(self.game, self.player)
+        reward = self.__player_reward(prior_game_points, prior_match_points,
+                                      self.player.game_points, self.player.match_points)
+        self.memory.push(state, action_id, next_state, reward)
+        self.__optimize(batch_size)
+        # Update game state as necessary
+        if self.game.have_match_winner:
+            self.start_new_match()
+        if self.game.have_game_winner:
+            self.start_new_game()

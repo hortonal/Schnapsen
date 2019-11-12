@@ -1,7 +1,7 @@
-from Game.Player import Player
+from SimpleGame.SimplePlayer import SimplePlayer
 
 
-class HumanPlayer(Player):
+class SimpleHumanPlayer(SimplePlayer):
 
     def __init__(self, name='Huuuman'):
         super().__init__(name=name, automated=False)
