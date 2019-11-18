@@ -193,28 +193,47 @@ class IOHelpers:
 
     @staticmethod
     def get_random_legal_action(game, player):
-        player.evaluate_legal_actions(game.leading_card is None, game.leading_card)
+        player.evaluate_legal_actions(game.leading_card)
         action = random.choice(player.legal_actions)
         i = IOHelpers.get_index_for_action(action)
         return torch.tensor([i], dtype=torch.long), action
+
+    @staticmethod
+    def get_legal_actions(game, player):
+        player.evaluate_legal_actions(game.leading_card)
+        legal_moves = []
+        legal_actions = []
+        for i, item in enumerate(IOHelpers.output_actions):
+            is_legal, action = IOHelpers.check_action_legal(i, player.legal_actions)
+            legal_moves.append(is_legal)
+            legal_actions.append(action)
+        return torch.tensor(legal_moves, dtype=torch.bool), legal_actions
+
 
     # Pick an action based on values. Ignore illegal moves
     # convert it into an actual action
     @staticmethod
     def policy(q_values, game, player):
 
-        player.evaluate_legal_actions(game.leading_card is None, game.leading_card)
-        max_value = -100.0
-        selected_action = None
-        selected_action_id = None
-        for i, item in enumerate(q_values):
-            if float(item) > max_value:
-                is_legal, action = IOHelpers.check_action_legal(i, player.legal_actions)
-                if is_legal:
-                    max_value = float(item)
-                    selected_action = action
-                    selected_action_id = torch.tensor([i], dtype=torch.long)
+        legal_mask, legal_actions = IOHelpers.get_legal_actions(game, player)
+
+        # this is hack as hell but works.
+        q_values[~legal_mask] = -100
+
+        values, indices = q_values.max(0)
+
+        selected_action = legal_actions[indices]
+        selected_action_id = indices.unsqueeze(0)
+
         if selected_action is None:
             raise Exception('No valid action found')
 
         return selected_action_id, selected_action
+
+    # 3D policy implementation
+    @staticmethod
+    def policy_batch(q_values, legal_mask):
+
+        # this is hack as hell but works.
+        q_values[~legal_mask] = -100
+        return q_values.max(1)[0].detach()

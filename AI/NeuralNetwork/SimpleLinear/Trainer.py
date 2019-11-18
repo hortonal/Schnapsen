@@ -12,9 +12,9 @@ from AI.NeuralNetwork.ReplayMemory import ReplayMemory, Transition
 from AI.NeuralNetwork.SimpleLinear.IOHelpers import IOHelpers
 from AI.NeuralNetwork.SimpleLinear.LinearModule import LinearModule
 
-GAMMA = 0.99
-REWARD_COST_OF_LIVING = -0
-HIDDEN_LAYER_SIZE = 250
+GAMMA = 0.95
+REWARD_COST_OF_LIVING = -0.10
+HIDDEN_LAYER_SIZE = 500
 LEARNING_RATE = 0.0001
 
 EPS_START = 0.9
@@ -33,7 +33,7 @@ class Trainer:
         self.actions_selected = 0
         self.optimizer_count = 0
         self.reference_model = None
-        self._last_loss = 0
+        self._cumulative_loss = 0
         mock_inputs = IOHelpers.create_input_from_game_state(game, player)
 
         input_size = len(mock_inputs)
@@ -62,22 +62,23 @@ class Trainer:
         # Prepare batch replay
         transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
-        state_batch = torch.cat(batch.state).view(batch_size, -1)   # torch.cat()?
+        state_batch = torch.cat(batch.state).view(batch_size, -1)
         action_batch = torch.cat(batch.action).view(batch_size, -1)
         next_state_batch = torch.cat(batch.next_state).view(batch_size, -1)
+        next_legal_actions_batch = torch.cat(batch.next_legal_actions).view(batch_size, -1)
         reward_batch = torch.tensor(batch.reward)
 
         # Build Q(S,A) map
         state_action_values = self.model(state_batch).gather(1, action_batch)
+
         # Use the reference model to decide future state value (for stability apparently...)
-        # next_state_values = self.model(next_state_batch).max(1)[0].detach()
-        next_state_values = self.reference_model(next_state_batch).max(1)[0].detach()
+        next_state_q_values = self.reference_model(next_state_batch)
+        next_state_values = IOHelpers.policy_batch(next_state_q_values, next_legal_actions_batch)
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
         # Compute Huber loss
-        #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
-        loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
-        self._last_loss = float(loss)
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        self._cumulative_loss += float(loss)
 
         # Optimize the model
         self.optimizer.zero_grad()
@@ -116,7 +117,8 @@ class Trainer:
                 # (so we can break the program without losing progress)
                 if i % update_reference_model == 0:
                     self.__update_reference_model()
-                    logging.info(str(i) + ' actions run. Optimizer count: ' + str(self.optimizer_count) + '. loss: ' + str(self._last_loss))
+                    logging.info(str(i) + ' actions run. Optimizer count: ' + str(self.optimizer_count) + '. loss: ' + str(self._cumulative_loss / update_reference_model))
+                    self._cumulative_loss = 0
                     self.player.save_model()
                     self.start_new_match()
                     self.player.automated = True
@@ -152,7 +154,8 @@ class Trainer:
         next_state = IOHelpers.create_input_from_game_state(self.game, self.player)
         reward = self.__player_reward(prior_game_points, prior_match_points,
                                       self.player.game_points, self.player.match_points)
-        self.memory.push(state, action_id, next_state, reward)
+        next_legal_actions, _ = IOHelpers.get_legal_actions(self.game, self.player)
+        self.memory.push(state, action_id, next_state, next_legal_actions.unsqueeze(0), reward)
         self.__optimize(batch_size)
         # Update game state as necessary
         if self.game.have_match_winner:

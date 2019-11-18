@@ -6,7 +6,7 @@ import logging
 import sys
 
 train_mode = True
-train_existing_model = True
+train_existing_model = False
 
 logging.basicConfig(stream=sys.stderr)
 logger = logging.getLogger()
@@ -22,5 +22,5 @@ if train_existing_model:
     nn_player.load_model()
     trainer.initialise_with_players_model()
 
-trainer.train(number_actions=10000000, memory_size=50000, batch_size=100, update_reference_model=5000)
+trainer.train(number_actions=10000000, memory_size=20000, batch_size=100, update_reference_model=1000)
 nn_player.save_model()

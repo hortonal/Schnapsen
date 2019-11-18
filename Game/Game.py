@@ -82,8 +82,7 @@ class Game:
                 self.do_next_action(self.active_player, self.active_player.select_action())
 
     def evaluate_active_player_actions(self):
-        self.active_player.evaluate_legal_actions(self.active_player == self.leading_player,
-                                                  self.leading_card)
+        self.active_player.evaluate_legal_actions(self.leading_card)
 
     def do_next_action(self, player, action):
 

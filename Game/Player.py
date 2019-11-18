@@ -80,11 +80,11 @@ class Player:
         return len(self.hand) != 0
 
     # This ugly AF... But it works
-    def evaluate_legal_actions(self, am_leader, opponents_card):
+    def evaluate_legal_actions(self, opponents_card):
 
         legal_actions = []
 
-        if am_leader:
+        if opponents_card is None:
             if self.hand.has_card(self._trump.suit, 2) and not self.game.deck_closed:
                 legal_actions.append(Action(swap_trump=True))
 
