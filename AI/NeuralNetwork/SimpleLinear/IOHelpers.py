@@ -5,22 +5,24 @@ from AI.NeuralNetwork.CardInput import CardInput
 import torch
 import random
 
+
 class IOHelpers:
 
     deck_closed_key = -1
     my_points_to_victory_key = -2
-    my_uneared_points_key = -3
+    my_unearned_points_key = -3
     opponents_points_to_victory_key = -4
-    opponents_uneared_points_key = -5
+    opponents_unearned_points_key = -5
     match_points_on_offer_to_me_key = -6
-    match_points_on_offer_to_opponent = -7
+    match_points_on_offer_to_opponent_key = -7
 
-    # Make a static list of actions for performance. These should not be used for reference only and not passed to the game engine
-    output_actions = {}
+    # Make a static list of actions for performance. These should be used for reference only and not passed to the game engine
     d_marriage = Marriage(None, Card(Card.Diamonds, Card.Queen), Card(Card.Diamonds, Card.King))
     s_marriage = Marriage(None, Card(Card.Spades, Card.Queen), Card(Card.Spades, Card.King))
     h_marriage = Marriage(None, Card(Card.Hearts, Card.Queen), Card(Card.Hearts, Card.King))
     c_marriage = Marriage(None, Card(Card.Clubs, Card.Queen), Card(Card.Clubs, Card.King))
+
+    output_actions = {}
     # Cards
     output_actions[0] = Action(card=Card(Card.Diamonds, Card.Jack), marriage=None, swap_trump=False, close_deck=False)
     output_actions[1] = Action(card=Card(Card.Diamonds, Card.Queen), marriage=None, swap_trump=False, close_deck=False)
@@ -42,7 +44,6 @@ class IOHelpers:
     output_actions[17] = Action(card=Card(Card.Clubs, Card.King), marriage=None, swap_trump=False, close_deck=False)
     output_actions[18] = Action(card=Card(Card.Clubs, Card.Ten), marriage=None, swap_trump=False, close_deck=False)
     output_actions[19] = Action(card=Card(Card.Clubs, Card.Ace), marriage=None, swap_trump=False, close_deck=False)
-
     # Marriages
     output_actions[20] = Action(card=Card(Card.Diamonds, Card.Queen), marriage=d_marriage, swap_trump=False, close_deck=False)
     output_actions[21] = Action(card=Card(Card.Diamonds, Card.King), marriage=d_marriage, swap_trump=False, close_deck=False)
@@ -55,10 +56,6 @@ class IOHelpers:
     #Special Actions
     output_actions[28] = Action(card=None, marriage=None, swap_trump=True, close_deck=False)
     output_actions[29] = Action(card=None, marriage=None, swap_trump=False, close_deck=True)
-
-
-    def __init__(self):
-        pass
 
     @staticmethod
     def card_key(suit, value):
@@ -134,11 +131,11 @@ class IOHelpers:
 
         inputs[IOHelpers.deck_closed_key] = 1 if game.deck_closed else 0
         inputs[IOHelpers.my_points_to_victory_key] = game.match_point_limit - player.game_points
-        inputs[IOHelpers.my_uneared_points_key] = 0
+        inputs[IOHelpers.my_unearned_points_key] = 0
         inputs[IOHelpers.opponents_points_to_victory_key] = game.match_point_limit - player.opponent_game_points
-        inputs[IOHelpers.opponents_uneared_points_key] = 0
+        inputs[IOHelpers.opponents_unearned_points_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_me_key] = 0
-        inputs[IOHelpers.match_points_on_offer_to_opponent] = 0
+        inputs[IOHelpers.match_points_on_offer_to_opponent_key] = 0
 
         # I now have all the data I need. Now to convert it into something useful.
         # Flat vector is simplest. Or do some clever CNN?
@@ -164,10 +161,10 @@ class IOHelpers:
         input_vector.append(inputs[IOHelpers.my_points_to_victory_key] / game.game_point_limit)
         input_vector.append(inputs[IOHelpers.opponents_points_to_victory_key] / game.game_point_limit)
 
-        # input_vector.append(inputs[IOHelpers.my_uneared_points_key] / game.game_point_limit)
-        # input_vector.append(inputs[IOHelpers.opponents_uneared_points_key] / game.game_point_limit)
+        # input_vector.append(inputs[IOHelpers.my_unearned_points_key] / game.game_point_limit)
+        # input_vector.append(inputs[IOHelpers.opponents_unearned_points_key] / game.game_point_limit)
         # input_vector.append(inputs[IOHelpers.match_points_on_offer_to_me_key])
-        # input_vector.append(inputs[IOHelpers.match_points_on_offer_to_opponent])
+        # input_vector.append(inputs[IOHelpers.match_points_on_offer_to_opponent_key])
 
         return torch.tensor(input_vector, dtype=torch.float)
 
@@ -217,10 +214,11 @@ class IOHelpers:
 
         legal_mask, legal_actions = IOHelpers.get_legal_actions(game, player)
 
-        # this is hack as hell but works.
+        # set all illegal moves to a quality value of -100
+        # this is more than a little hacky but in reality filters out illegal moves sufficiently
         q_values[~legal_mask] = -100
 
-        values, indices = q_values.max(0)
+        _, indices = q_values.max(0)
 
         selected_action = legal_actions[indices]
         selected_action_id = indices.unsqueeze(0)

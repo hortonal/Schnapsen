@@ -7,6 +7,7 @@ import time
 import random
 import logging
 import math
+from Game.Game import Game as Game
 import Game.GameHelpers as GameHelpers
 from AI.NeuralNetwork.ReplayMemory import ReplayMemory, Transition
 from AI.NeuralNetwork.SimpleLinear.IOHelpers import IOHelpers
@@ -17,16 +18,17 @@ REWARD_COST_OF_LIVING = -0.10
 HIDDEN_LAYER_SIZE = 500
 LEARNING_RATE = 0.0001
 
-EPS_START = 0.9
+EPS_START = 0.95
 EPS_END = 0.05
 EPS_DECAY = 100000
 
 
 class Trainer:
 
-    def __init__(self, game, player):
-        self.game = game
+    def __init__(self, player, opponents):
+        self.game = None
         self.player = player
+        self.opponents = opponents       # Collection of AI opponents to train against
         self.player.automated = False    # Override the automatic action behaviour when training
         self.memory = None
         self.logger = logging.getLogger()
@@ -34,7 +36,9 @@ class Trainer:
         self.optimizer_count = 0
         self.reference_model = None
         self._cumulative_loss = 0
-        mock_inputs = IOHelpers.create_input_from_game_state(game, player)
+
+        self.__create_game_vs_random_opponent()
+        mock_inputs = IOHelpers.create_input_from_game_state(self.game, self.player)
 
         input_size = len(mock_inputs)
         output_size = len(IOHelpers.output_actions)
@@ -49,6 +53,9 @@ class Trainer:
     def initialise_with_players_model(self):
         self.model = self.player.model
         self.__update_reference_model()
+
+    def __create_game_vs_random_opponent(self):
+        self.game = Game(self.player, random.choice(self.opponents))
 
     def __player_reward(self, prior_game_points, prior_match_points, game_points, match_points):
         return torch.tensor(REWARD_COST_OF_LIVING +
@@ -89,6 +96,7 @@ class Trainer:
         self.optimizer_count += 1
 
     def start_new_match(self):
+        self.__create_game_vs_random_opponent()
         self.game.new_match()
         self.start_new_game()
 
@@ -128,7 +136,6 @@ class Trainer:
 
     def select_action(self, state):
         # Call NN to give me next move
-        # todo: implement epsilon greedy
         sample = random.random()
         eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * self.actions_selected / EPS_DECAY)
         self.actions_selected += 1

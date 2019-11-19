@@ -16,7 +16,7 @@ class Player:
         self.cards_won = []
         self.match_points = 0
         self.game_points = 0
-        self.opponent_hand = []
+        self.opponent_hand = []  # This is for keeping track of cards we know the opponent definitely has
         self.opponent_cards_won = []
         self.opponent_match_points = 0
         self.opponent_game_points = 0

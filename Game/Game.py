@@ -8,7 +8,7 @@ from Game.Player import Player
 
 class Game:
 
-    def __init__(self, player_a, player_b, match_point_limit=7):
+    def __init__(self, player_a, player_b, match_point_limit=7, game_point_limit=66):
 
         self._logger = logging.getLogger()
         # Register game instance in players
@@ -18,7 +18,7 @@ class Game:
         self._player_a = player_a
         self._player_b = player_b
         self._players = [player_a, player_b]
-        self.game_point_limit = 66
+        self.game_point_limit = game_point_limit
         self.match_point_limit = match_point_limit
         self._deck = []
         self.__init_match_vars()
