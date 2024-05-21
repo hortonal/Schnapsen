@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["schnapsen"]
+
+[project]
+name = "schnapsen"
+description = "Schnapsen card game project"
+
+readme = "README.md"
+requires-python = ">=3.12"
+
+dynamic = ["version"]
+
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --cov=schnapsen --cov-fail-under=55"
+testpaths = ["tests"]
+
+filterwarnings = "ignore:.*distutils*:DeprecationWarning"
+
+[tool.isort]
+line_length = 120
+profile = "google"
+
+[tool.flake8]
+# Core flake8
+max-line-length = 120
+ignore =["W503",    # Allow unused to be marked with _
+         "U101",
+         "ANN101",
+         ]
+exclude = ["build",   # Duplicated "built" code
+           "venv",    # 3rd party files
+           "tmp*.py", # Local temporary scripts
+           "ai"       # Temporarily ignore existing AI package while we improve standards
+           ] 
+per-file-ignores =["tests/*:D103, D102, D101, ANN201, D100",   # Relaxed docstrings and linting for tests.
+                   "**/__init__.py: D104"]         # No need for doc strings in init files.
+# flake8-docstrings
+docstring-convention = "google"
+# flake8-functions
+max-function-length = 300
+# mccabe
+max-complexity = 10
+# darglint
+docstring-style = "google"
