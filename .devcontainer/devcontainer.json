@@ -1,0 +1,35 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "schapsen-dev-container",
+    // "image": "docker.io/continuumio/miniconda3:latest",
+    "build": {
+        // Path is relative to the devcontainer.json file.
+        "dockerfile": "Dockerfile",
+		"context": ".."
+    },
+
+	// Run after the docker image has been built
+	"postCreateCommand": "pip install -e .",
+
+	// Configure tool-specific properties.
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			"settings": {
+				"python.defaultInterpreterPath": "/opt/conda/envs/default_env/bin/python"
+			},
+			"extensions": [
+				"streetsidesoftware.code-spell-checker",
+				"ms-azuretools.vscode-docker",
+				"njpwerner.autodocstring",
+				"ms-python.flake8",
+				"devantler.git-extension-pack-new",
+				"ms-python.isort",
+				"ms-python.vscode-pylance",
+				"ms-python.python",
+				"ms-python.debugpy",
+			]
+		}
+	}
+}

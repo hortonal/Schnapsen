@@ -20,9 +20,9 @@ def main() -> None:
     nanny = NNSimpleLinearPlayer    # noqa: F841 - We switch between these for game testing
 
     player1 = human()
-    # player1 = nanny()
-    # player1 = betty()
-    # player1 = randy()
+    # player2 = nanny()
+    # player2 = betty(name="Betty")
+    # player2 = randy(name="Randy")
     player2 = nanny()
 
     human = None
