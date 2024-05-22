@@ -8,12 +8,19 @@ For more info on the game itself and the rules, see wikipedia: <https://en.wikip
 
 ## Basic setup / installation
 
-Your're strongly encouraged to use an environment manager. E.g. miniconda/mamba/venv or similar. We'll assume a conda
-variant is being used:
+### Docker Dev Container
+
+This repo includes has a VSCode dev container that can be used to get a quickly working dev environment running. This
+requires a Docker daemon like Docker Desktop to be available/running.
+
+### Local installation
+
+To run/develop locally, your're strongly encouraged to use an environment manager. E.g. [mini]conda, [mini]mamba, venv or similar. We'll assume a conda variant is being used:
 
 ``` bash
 conda env create -n schnapsen
 conda activate schnapsen
+# Basic application requirements
 pip install -r requirements.txt
 # Dev requirements
 pip install -r requirements-dev.txt
