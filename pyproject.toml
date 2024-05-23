@@ -18,8 +18,8 @@ dynamic = ["version"]
 [tool.pytest.ini_options]
 addopts = "--strict-markers --cov=schnapsen --cov-fail-under=55"
 testpaths = ["tests"]
-
 filterwarnings = "ignore:.*distutils*:DeprecationWarning"
+
 
 [tool.isort]
 line_length = 120

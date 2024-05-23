@@ -3,7 +3,7 @@
     "editor.rulers": [120],    
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [
-        "."
+        "tests"
     ],
     "isort.args": [
         "--line-length",

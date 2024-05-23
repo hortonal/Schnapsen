@@ -23,17 +23,17 @@ from schnapsen.gui.gui_card import GUICard
 class GUI:
     """Simple game user interface."""
 
-    def __init__(self, game_controller: MatchController, human_player: Player) -> None:
+    def __init__(self, match_controller: MatchController, human_player: Player) -> None:
         """Create GUI object.
 
         Parameters
         ----------
-        game_controller : Game
+        match_controller : MatchController
             The underlying game controller in use.
         human_player : Player
             The human player object interacting with the UI.
         """
-        self.game = game_controller
+        self.game = match_controller
         self.player = human_player
         self.opponent = self.game.get_other_player(self.player)
         self.window = Tk()
@@ -112,9 +112,9 @@ class GUI:
         self._update_labels()
 
     def _callback_cards_played(self) -> None:
-        self._leader_card.update_card(self.game.leading_card)
-        self._follower_card.update_card(self.game.following_card)
-        if self.game.following_card is not None:
+        self._leader_card.update_card(self.game.round_state.leading_card)
+        self._follower_card.update_card(self.game.round_state.following_card)
+        if self.game.round_state.following_card is not None:
             self.window.update_idletasks()
             self.window.update()
             time.sleep(.5)  # This isn't very nice but works just fine
@@ -125,11 +125,11 @@ class GUI:
         self._follower_card.update_card(None)
 
     def _update_labels(self) -> None:
-        self._player_points_label['text'] = self._points_string(self.player.game_points, self.player.match_points)
+        self._player_points_label['text'] = self._points_string(self.player.round_points, self.player.match_points)
         self._opponent_points_label['text'] = self._points_string(self.player.opponent_game_points,
                                                                   self.player.opponent_match_points)
-        if self.game.trump_card is not None:
-            self._trump_suit_label['text'] = Suit_string_map[self.game.trump_card.suit]
+        if self.game.round_state.trump_card is not None:
+            self._trump_suit_label['text'] = Suit_string_map[self.game.round_state.trump_card.suit]
 
     def _update_deck(self) -> None:
         can_swamp_trump = False
@@ -149,11 +149,11 @@ class GUI:
             self._close_deck_button['state'] = 'disable'
 
         # Handle close deck
-        if self.game.deck_closed:
+        if self.game.round_state.deck_closed:
             self._trump_card.update_card(None)
             self._deck.update_card(None)
         else:
-            self._trump_card.update_card(self.game.trump_card)
+            self._trump_card.update_card(self.game.round_state.trump_card)
             self._deck.update_card(self._card_back)
 
     def _update_cards(self) -> None:
@@ -247,17 +247,19 @@ class GUI:
         if next_action is None:
             messagebox.showwarning('Title', 'Action is not valid - try something else...')
         else:
-            self.game.do_next_action(self.player, next_action)
+            self.game.do_next_action(next_action)
             self._handle_ai_actions()
             self._update_screen()
 
-            if self.game.have_game_winner:
-                messagebox.showinfo(title='Game Winner!!!', message='Winner is: ' + self.game.game_winner.name)
+            if self.game.round_state.have_round_winner:
+                messagebox.showinfo(title='Game Winner!!!',
+                                    message='Winner is: ' + self.game.round_state.round_winner.name)
                 self._new_game()
 
-            if self.game.have_match_winner:
-                messagebox.showinfo(title='Match Winner!!!',
-                                    message='Winner is: ' + self.game.match_winner.name + '. Starting new game')
+            if self.game.match_state.have_match_winner:
+                messagebox.showinfo(
+                    title='Match Winner!!!',
+                    message='Winner is: ' + self.game.match_state.match_winner.name + '. Starting new game')
                 self._play_match()
 
     def _togle_cheat_mode(self) -> None:

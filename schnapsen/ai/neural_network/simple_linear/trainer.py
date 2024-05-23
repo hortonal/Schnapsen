@@ -70,7 +70,7 @@ class Trainer:
             # Reward more match points
             (match_points - prior_match_points) +   # noqa: W504
             # Game points (but not as much as match points)
-            (game_points - prior_game_points) / self.game.game_point_limit,
+            (game_points - prior_game_points) / self.game.match_state.round_point_limit,
             dtype=torch.float)
 
     def __optimize(self, batch_size):
@@ -174,7 +174,7 @@ class Trainer:
         action_id, action = self.select_action(state)
 
         # Apply action and perform any opponent actions. I.e. continue game until our turn to act
-        self.game.do_next_action(self.player, action)
+        self.game.do_next_action(action)
         self.game.progress_automated_actions()
 
         next_state = IOHelpers.create_input_from_game_state(self.game, self.player)
@@ -184,7 +184,7 @@ class Trainer:
         self.memory.push(state, action_id, next_state, next_legal_actions.unsqueeze(0), reward)
         self.__optimize(batch_size)
         # Update game state as necessary
-        if self.game.have_match_winner:
+        if self.game.match_state.have_match_winner:
             self.start_new_match()
-        if self.game.have_game_winner:
+        if self.game.round_state.have_round_winner:
             self.start_new_game()

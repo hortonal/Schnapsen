@@ -18,7 +18,7 @@ class BetterPlayer(Player):
 
         # Close the deck for shits
         for action in self.legal_actions:
-            if action.close_deck is True and self.game_points > 50:
+            if action.close_deck is True and self.round_points > 50:
                 selected_action = action
                 break
 
@@ -29,9 +29,9 @@ class BetterPlayer(Player):
                     selected_action = action
                     break
 
-        if selected_action is None and self.game.leading_player:
+        if selected_action is None and self.game.round_state.leading_player:
             selected_action = self._decide_leader_action()
-        if selected_action is None and not self.game.leading_player:
+        if selected_action is None and not self.game.round_state.leading_player:
             selected_action = self._decide_follower_action()
 
         assert selected_action is not None, 'No action selected!'

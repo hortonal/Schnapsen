@@ -17,33 +17,34 @@ class Results():
     winner: Player
 
 
-def play_automated_matches(game: MatchController, number_of_matches: int = 999) -> Results:
+def play_automated_matches(match_controller: MatchController, number_of_matches: int = 999) -> Results:
     """Play games automatically (assuming players are both automatable).
 
     Parameters
     ----------
-    game : Game
+    match_controller : Game
         The Game instance to use.
     number_of_matches : int, optional
         The number of games to play through, by default 999 (odd to avoid ties)
     """
     logger = logging.getLogger()
 
-    player1 = game._player_a
-    player2 = game._player_b
+    player1 = match_controller._player_a
+    player2 = match_controller._player_b
     player1_wins = 0
     player2_wins = 0
 
     for _ in range(number_of_matches):
-        game.play_automated_match()
+        match_controller.play_automated_match()
 
-        if game.match_winner is player1:
+        if match_controller.match_winner is player1:
             player1_wins += 1
         else:
             player2_wins += 1
 
-        logger.debug('%s vs %s, winner is %s. Running Total: %i:%i',
-                     player1.name, player2.name, game.match_winner.name, player1_wins, player2_wins)
+        logger.debug(
+            '%s vs %s, winner is %s. Running Total: %i:%i',
+            player1.name, player2.name, match_controller.match_state.match_winner.name, player1_wins, player2_wins)
 
     logger.info('%s vs %s. %i:%i', player1.name, player2.name, player1_wins, player2_wins)
 

@@ -6,7 +6,7 @@ from schnapsen.core.card import Value
 
 def test_card_action():
     action = Action(card=Card(Suit.CLUB, Value.ACE))
-    expected_str = "Play card Ace Clubs"
+    expected_str = "Play card: Ace Clubs"
     assert action._nice_str() == expected_str
     assert str(action) == expected_str
     assert action.__repr__() == expected_str
@@ -14,12 +14,12 @@ def test_card_action():
 
 def test_swap_trump():
     action = Action(swap_trump=True)
-    assert action._nice_str() == "Swap trump "
+    assert action._nice_str() == "Swap trump"
 
 
 def test_close_deck():
     action = Action(close_deck=True)
-    assert action._nice_str() == "Close Deck "
+    assert action._nice_str() == "Close Deck"
 
 
 def test_equality():

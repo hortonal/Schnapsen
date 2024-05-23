@@ -37,7 +37,8 @@ def run_tournament(number_of_matches_per_battle: int = 999) -> None:
     # Now play all combinations of players
     for (player1, player2) in combinations(players, 2):
         game = MatchController(player1, player2)
-        results = match_helpers.play_automated_matches(game=game, number_of_matches=number_of_matches_per_battle)
+        results = match_helpers.play_automated_matches(
+            match_controller=game, number_of_matches=number_of_matches_per_battle)
         tournament_results[results.winner] = tournament_results[results.winner] + 1
 
     # And print out sorted results

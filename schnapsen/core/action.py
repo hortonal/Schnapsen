@@ -31,16 +31,16 @@ class Action:
     def _nice_str(self) -> str:
         return_string = ''
         if self.swap_trump:
-            return_string = 'Swap trump '
+            return_string = 'Swap trump'
 
         if self.close_deck:
-            return_string += 'Close Deck '
+            return_string += 'Close Deck'
 
         if self.marriage is not None:
-            return_string += 'Play marriage '
+            return_string += 'Play marriage'
 
         if self.card is not None:
-            return_string += 'Play card ' + str(self.card)
+            return_string += f'Play card: {self.card}'
 
         return return_string
 

@@ -6,12 +6,16 @@ and game controller interaction handled in this class.
 """
 from __future__ import annotations
 
-from typing import List
+from typing import Callable, List, TYPE_CHECKING
 
 from schnapsen.core.action import Action
 from schnapsen.core.card import Card
 from schnapsen.core.card import Value
 from schnapsen.core.hand import Hand
+
+if TYPE_CHECKING:
+    from schnapsen.core.state import PublicMatchState
+    from schnapsen.core.state import PublicRoundState
 
 
 class Player:
@@ -38,12 +42,15 @@ class Player:
         self.hand = Hand()
         self.cards_won = []
         self.match_points = 0
-        self.game_points = 0
+        self.round_points = 0
         self.opponent_hand = []  # This is for keeping track of cards we know the opponent definitely has
         self.opponent_cards_won = []
         self.opponent_match_points = 0
         self.opponent_game_points = 0
-        self.game = None  # Assigned by game controller
+        # self.game = None  # Assigned by game controller
+        self.round_state: PublicRoundState = None  # Assigned by game controller
+        self.match_state: PublicMatchState = None  # Assigned by game controller
+        self.declare_win_callback: Callable = None  # Assigned by game controller
         self._trump = None
         self.legal_actions = []
 
@@ -65,13 +72,13 @@ class Player:
         """Prepare a player for next match."""
         self.match_points = 0
         self.opponent_match_points = 0
-        self.reset_for_new_game()
+        self.reset_for_new_round()
 
-    def reset_for_new_game(self) -> None:
-        """Prepare a player for next game."""
+    def reset_for_new_round(self) -> None:
+        """Prepare a player for next round."""
         self.hand = Hand()
         self.cards_won = []
-        self.game_points = 0
+        self.round_points = 0
         self.opponent_hand = []
         self.opponent_cards_won = []
         self.opponent_game_points = 0
@@ -101,7 +108,8 @@ class Player:
             The cards won by the player, by default None
         """
         if player is self:
-            self.game_points += points
+            self.round_points += points
+            # After we get awarded points, immediately see if we can terminate the round.
             self._check_and_declare_win()
             if cards is not None:
                 for card in cards:
@@ -133,11 +141,7 @@ class Player:
             self.game.declare_game_win(self)
 
     def _enough_points(self) -> None:
-        return self.game_points >= self.game.game_point_limit
-
-    def has_cards_left(self) -> None:
-        """Check if hand is empty."""
-        return len(self.hand) != 0
+        return self.round_points >= self.game.match_state.round_point_limit
 
     def evaluate_legal_actions(self, opponents_card: Card) -> List[Action]:  # noqa: C901 (it's complex still...)
         """Check what legal actions are available.
@@ -147,15 +151,15 @@ class Player:
         Parameters
         ----------
         opponents_card : Card
-            The Card played by the opponent, or None if our move.
+            The Card played by the opponent, or None if this player's lead.
         """
         legal_actions = []
 
         if opponents_card is None:
-            if self.hand.has_card(Card(self._trump.suit, Value.JACK)) and not self.game.deck_closed:
+            if self.hand.has_card(Card(self._trump.suit, Value.JACK)) and not self.game.round_state.deck_closed:
                 legal_actions.append(Action(swap_trump=True))
 
-            if not self.game.deck_closed:
+            if not self.game.round_state.deck_closed:
                 legal_actions.append(Action(close_deck=True))
 
             marriages = self.hand.available_marriages()
@@ -168,7 +172,7 @@ class Player:
             for card in self.hand:
                 legal_actions.append(Action(card=card))
         else:
-            if not self.game.deck_closed:
+            if not self.game.round_state.deck_closed:
                 for card in self.hand:
                     legal_actions.append(Action(card=card))
             else:

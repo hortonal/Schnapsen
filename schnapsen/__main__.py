@@ -32,14 +32,14 @@ def main() -> None:
         if player.requires_model_load:
             player.load_model()
 
-    game = MatchController(player1, player2)
+    match_controller = MatchController(player1, player2)
 
     if human is not None:
-        human.UI = GUI(game_controller=game, human_player=human)
+        human.UI = GUI(match_controller=match_controller, human_player=human)
         human.UI.window.mainloop()
 
     else:
-        match_helpers.play_automated_matches(game=game, number_of_matches=1000)
+        match_helpers.play_automated_matches(match_controller=match_controller, number_of_matches=1000)
 
 
 if __name__ == "__main__":

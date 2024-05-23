@@ -133,14 +133,15 @@ class IOHelpers:
             card_input = inputs[IOHelpers.card_key(card.suit, card.value)]
             card_input.won_by_opponent = True
 
-        lead_card = game.leading_card
+        lead_card = game.round_state.leading_card
         if lead_card is not None:
             inputs[IOHelpers.card_key(lead_card.suit, lead_card.value)].is_leading_card = True
 
-        inputs[IOHelpers.deck_closed_key] = 1 if game.deck_closed else 0
-        inputs[IOHelpers.my_points_to_victory_key] = game.match_point_limit - player.game_points
+        inputs[IOHelpers.deck_closed_key] = 1 if game.round_state.deck_closed else 0
+        inputs[IOHelpers.my_points_to_victory_key] = game.match_state.match_point_limit - player.round_points
         inputs[IOHelpers.my_unearned_points_key] = 0
-        inputs[IOHelpers.opponents_points_to_victory_key] = game.match_point_limit - player.opponent_game_points
+        inputs[IOHelpers.opponents_points_to_victory_key] = \
+            game.match_state.match_point_limit - player.opponent_game_points
         inputs[IOHelpers.opponents_unearned_points_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_me_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_opponent_key] = 0
@@ -152,14 +153,14 @@ class IOHelpers:
         return IOHelpers.__create_flat_tensor(inputs, game)
 
     @staticmethod
-    def __create_flat_tensor(inputs, game):
+    def __create_flat_tensor(inputs, game: MatchController):
         # (With performance in mind, it'd be better to create the
         # tensor elements directly instead of using a list but hey...)
         input_vector = []
         for item in inputs.values():
             if isinstance(item, CardInput):
                 input_vector.append(item.suit / 3)  # Normalise suit value
-                input_vector.append(item.value / game.game_point_limit)  # Normalise card value to fraction of a game
+                input_vector.append(item.value / game.match_state.round_point_limit)  # Normalise card value to fraction of a game
                 input_vector.append(item.in_my_hand)
                 input_vector.append(item.in_opponent_hand)
                 input_vector.append(item.won_by_me)
@@ -167,11 +168,11 @@ class IOHelpers:
                 input_vector.append(item.is_leading_card)
 
         input_vector.append(inputs[IOHelpers.deck_closed_key])
-        input_vector.append(inputs[IOHelpers.my_points_to_victory_key] / game.game_point_limit)
-        input_vector.append(inputs[IOHelpers.opponents_points_to_victory_key] / game.game_point_limit)
+        input_vector.append(inputs[IOHelpers.my_points_to_victory_key] / game.match_state.round_point_limit)
+        input_vector.append(inputs[IOHelpers.opponents_points_to_victory_key] / game.match_state.round_point_limit)
 
-        # input_vector.append(inputs[IOHelpers.my_unearned_points_key] / game.game_point_limit)
-        # input_vector.append(inputs[IOHelpers.opponents_unearned_points_key] / game.game_point_limit)
+        # input_vector.append(inputs[IOHelpers.my_unearned_points_key] / game.match_state.round_point_limit)
+        # input_vector.append(inputs[IOHelpers.opponents_unearned_points_key] / game.match_state.round_point_limit)
         # input_vector.append(inputs[IOHelpers.match_points_on_offer_to_me_key])
         # input_vector.append(inputs[IOHelpers.match_points_on_offer_to_opponent_key])
 
@@ -199,14 +200,14 @@ class IOHelpers:
 
     @staticmethod
     def get_random_legal_action(game, player):
-        player.evaluate_legal_actions(game.leading_card)
+        player.evaluate_legal_actions(game.round_state.leading_card)
         action = random.choice(player.legal_actions)
         i = IOHelpers.get_index_for_action(action)
         return torch.tensor([i], dtype=torch.long), action
 
     @staticmethod
     def get_legal_actions(game, player):
-        player.evaluate_legal_actions(game.leading_card)
+        player.evaluate_legal_actions(game.round_state.leading_card)
         legal_moves = []
         legal_actions = []
         for i in range(len(IOHelpers.output_actions)):
