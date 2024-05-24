@@ -81,7 +81,8 @@ class GUICard:
         self.file_open = Image.open(self._image_path(CARD_BACK, 0))
         self.card_image = ImageTk.PhotoImage(self.file_open)
 
-        self.card_canvas = Canvas(self.parent_frame, width=self.card_image.width(), height=self.card_image.height())
+        self.card_canvas = Canvas(self.parent_frame, width=self.card_image.width() + 1,
+                                  height=self.card_image.height() + 1)
         self.card_canvas.create_image((self.card_image.width() / 2 + 2,
                                       self.card_image.height() / 2 + 3), image=self.card_image)
         self.card_image_on_canvas = self.card_canvas.create_image(
@@ -91,8 +92,9 @@ class GUICard:
         self.card_canvas.pack(side=TOP, padx=2, pady=2)
 
         if enable_play_buttons:
-            self.play_button = ttk.Button(self.parent_frame, text='P', width=0, command=play_command)
-            self.play_marriage_button = ttk.Button(self.parent_frame, text='M', width=0, command=play_marriage_command)
+            self.play_button = ttk.Button(self.parent_frame, text='P', width=0, command=play_command, takefocus=False)
+            self.play_marriage_button = ttk.Button(self.parent_frame, text='M', width=0,
+                                                   command=play_marriage_command, takefocus=False)
             self.play_button.pack(side=BOTTOM)
             self.play_marriage_button.pack(side=BOTTOM)
         return self.parent_frame

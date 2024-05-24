@@ -37,10 +37,10 @@ class Action:
             return_string += 'Close Deck'
 
         if self.marriage is not None:
-            return_string += 'Play marriage'
+            return_string += 'Play marriage - '
 
         if self.card is not None:
-            return_string += f'Play card: {self.card}'
+            return_string += str(self.card)
 
         return return_string
 

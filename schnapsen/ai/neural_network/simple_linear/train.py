@@ -48,7 +48,7 @@ def train(train_config: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
-    train(TrainConfig(number_actions=10000000,
+    train(TrainConfig(number_actions=100000000,
+                      batch_size=1000,
                       memory_size=20000,
-                      batch_size=300,
-                      nb_training_loops_before_reference_model_update=1000))
+                      nb_training_loops_before_reference_model_update=5000))

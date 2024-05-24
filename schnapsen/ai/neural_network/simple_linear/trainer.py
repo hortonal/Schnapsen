@@ -35,10 +35,15 @@ class TrainConfig:
 
     TODO: Detail what this parameters do
     """
+    # The total number of actions to train for.
     number_actions: int
+    # The number of actions to retain in a memory. Used for bulk optimisations.
     memory_size: int = 1000
+    # How many actions to sample from memory for each optimisation step.
     batch_size: int = 100
+    # After how many actions do we save out a copy of the latest model and udate our reference model.
     nb_training_loops_before_reference_model_update: int = 1000
+    # If true, we save the udpated model to disk upon reference model update. (Gets set to false for testing purposes).
     update_model_on_disk: bool = True
 
 
@@ -94,7 +99,7 @@ class Trainer:
     def __create_game_vs_random_opponent(self):
         self.match_controller = MatchController(self.player, random.choice(self.opponents))
 
-    def __player_reward(self, prior_game_points, prior_match_points, game_points, match_points):
+    def __player_reward(self, prior_round_points, prior_match_points, round_points, match_points):
         # TODO: Detail the logic here. This can/should almost certainly be tweaked!
         return torch.tensor(
             # Letting the game go on for no reason is bad. Discourage living forever
@@ -102,15 +107,15 @@ class Trainer:
             # Reward more match points
             (match_points - prior_match_points) +   # noqa: W504
             # Game points (but not as much as match points)
-            (game_points - prior_game_points) / \
+            (round_points - prior_round_points) / \
             self.match_controller.match_state.round_point_limit,
             dtype=torch.float)
 
     def __optimize(self, batch_size):
         if len(self.memory) < batch_size:
             return
-
         # Prepare batch replay
+
         transitions = self.memory.sample(batch_size)
         batch = Transition(*zip(*transitions))
         state_batch = torch.cat(batch.state).view(batch_size, -1)
@@ -201,7 +206,7 @@ class Trainer:
         self.actions_selected += 1
 
         if sample > eps_threshold:
-            return IOHelpers.get_random_legal_action(self.match_controller, self.player)
+            return IOHelpers.get_random_legal_action(self.match_controller.round_state, self.player)
         else:
             with torch.no_grad():
                 q_values = self.model(state)
@@ -209,7 +214,7 @@ class Trainer:
 
     def single_training_loop(self, batch_size: int):
 
-        prior_game_points = self.player.round_points
+        prior_round_points = self.player.round_points
         prior_match_points = self.player.match_points
         state = IOHelpers.create_input_from_game_state(self.player)
         action_id, action = self.select_action(state)
@@ -219,7 +224,7 @@ class Trainer:
         self.match_controller.progress_automated_actions()
 
         next_state = IOHelpers.create_input_from_game_state(self.player)
-        reward = self.__player_reward(prior_game_points, prior_match_points,
+        reward = self.__player_reward(prior_round_points, prior_match_points,
                                       self.player.round_points, self.player.match_points)
         next_legal_actions, _ = IOHelpers.get_legal_actions(self.player)
         self.memory.push(state, action_id, next_state,

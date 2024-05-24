@@ -46,7 +46,7 @@ class Player:
         self.opponent_hand = []  # This is for keeping track of cards we know the opponent definitely has
         self.opponent_cards_won = []
         self.opponent_match_points = 0
-        self.opponent_game_points = 0
+        self.opponent_round_points = 0
         self.round_state: PublicRoundState = None  # Assigned by game controller
         self.match_state: PublicMatchState = None  # Assigned by game controller
         self.declare_win_callback: Callable = None  # Assigned by game controller
@@ -74,7 +74,7 @@ class Player:
         self.round_points = 0
         self.opponent_hand = []
         self.opponent_cards_won = []
-        self.opponent_game_points = 0
+        self.opponent_round_points = 0
         self._trump = None
 
     def receive_card(self, card: Card) -> None:
@@ -88,26 +88,26 @@ class Player:
         """
         self._trump = card
 
-    def notify_game_points_won(self, player: Player, points: int, cards: List[Card] = None) -> None:
+    def notify_round_points_won(self, winning_player: Player, points: int, cards: List[Card] = None) -> None:
         """Notify player that a single hand has been won.
 
         Parameters
         ----------
-        player : Player
+        winning_player : Player
             The player that won the single hand.
         points : int
             The points won by the hand.
         cards : List[Card], optional
             The cards won by the player, by default None
         """
-        if player is self:
+        if winning_player is self:
             self.round_points += points
             # After we get awarded points, immediately see if we can terminate the round.
             self._check_and_declare_win()
             self.cards_won.extend(cards)
 
         else:
-            self.opponent_game_points += points
+            self.opponent_round_points += points
             self.opponent_cards_won.extend(cards)
 
     def notify_match_points_won(self, player: Player, points: int) -> None:
@@ -133,59 +133,71 @@ class Player:
     def _enough_points(self) -> None:
         return self.round_points >= self.match_state.round_point_limit
 
-    def evaluate_legal_actions(self, opponents_card: Card) -> List[Action]:  # noqa: C901 (it's complex still...)
+    def evaluate_legal_actions(self, leading_card: Card) -> List[Action]:
         """Determine the set of legal actions.
 
         TODO: Reduce complexity.
 
         Parameters
         ----------
-        opponents_card : Card
-            The Card played by the opponent, or None if this player's lead.
+        leading_card : Card
+            The Card played by the opponent, or None if it's the current player's lead.
         """
         legal_actions = []
 
-        if opponents_card is None:
-            if self.hand.has_card(Card(self._trump.suit, Value.JACK)) and not self.round_state.deck_closed:
-                legal_actions.append(Action(swap_trump=True))
-
-            if not self.round_state.deck_closed:
-                legal_actions.append(Action(close_deck=True))
-
-            marriages = self.hand.available_marriages()
-            for marriage in marriages:
-                legal_actions.append(Action(card=marriage.queen,
-                                            marriage=marriage))
-                legal_actions.append(Action(card=marriage.king,
-                                            marriage=marriage))
-
-            for card in self.hand:
-                legal_actions.append(Action(card=card))
+        if leading_card is None:
+            legal_actions.extend(self._legal_leading_actions())
         else:
-            if not self.round_state.deck_closed:
-                for card in self.hand:
-                    legal_actions.append(Action(card=card))
-            else:
-                more_legal_actions = True
-                for card in self.hand.cards_of_same_suit(opponents_card.suit, opponents_card.value):
-                    legal_actions.append(Action(card=card))
-                    more_legal_actions = False
-
-                if more_legal_actions:
-                    for card in self.hand.cards_of_same_suit(opponents_card.suit):
-                        legal_actions.append(Action(card=card))
-                        more_legal_actions = False
-
-                if more_legal_actions:
-                    for card in self.hand.cards_of_same_suit(self._trump.suit):
-                        legal_actions.append(Action(card=card))
-                        more_legal_actions = False
-
-                if more_legal_actions:
-                    for card in self.hand:
-                        legal_actions.append(Action(card=card))
+            legal_actions.extend(self._legal_follower_actions(leading_card=leading_card))
 
         self.legal_actions = legal_actions
+
+    def _legal_leading_actions(self) -> List[Action]:
+        legal_actions = []
+
+        if self.hand.has_card(Card(self._trump.suit, Value.JACK)) and not self.round_state.deck_closed:
+            legal_actions.append(Action(swap_trump=True))
+
+        if not self.round_state.deck_closed:
+            legal_actions.append(Action(close_deck=True))
+
+        marriages = self.hand.available_marriages()
+        for marriage in marriages:
+            legal_actions.append(Action(card=marriage.queen,
+                                        marriage=marriage))
+            legal_actions.append(Action(card=marriage.king,
+                                        marriage=marriage))
+        for card in self.hand:
+            legal_actions.append(Action(card=card))
+        return legal_actions
+
+    def _legal_follower_actions(self, leading_card: Card) -> List[Action]:
+        legal_actions = []
+        furhter_legal_actions_exist = True
+        # Handle special rules around a closed deck first.
+        if self.round_state.deck_closed:
+            # If deck closed, player must follow suit and win if possible
+            for card in self.hand.cards_of_same_suit(suit=leading_card.suit, greater_than=leading_card.value):
+                legal_actions.append(Action(card=card))
+                furhter_legal_actions_exist = False
+
+            # Player must follow suit if they can't win
+            if furhter_legal_actions_exist:
+                for card in self.hand.cards_of_same_suit(suit=leading_card.suit):
+                    legal_actions.append(Action(card=card))
+                    furhter_legal_actions_exist = False
+
+            # Player must trump if they can't follow suit
+            if furhter_legal_actions_exist:
+                for card in self.hand.cards_of_same_suit(suit=self._trump.suit):
+                    legal_actions.append(Action(card=card))
+                    furhter_legal_actions_exist = False
+
+        # Failing the above, player can play any card.
+        if furhter_legal_actions_exist:
+            [legal_actions.append(Action(card=card)) for card in self.hand]
+
+        return legal_actions
 
     def _print_str_name(self) -> str:
         return self.name

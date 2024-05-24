@@ -10,6 +10,7 @@ from tkinter import RIGHT
 from tkinter import Tk
 from tkinter import TOP
 from tkinter import ttk
+from typing import List
 
 from schnapsen.core.action import Action
 from schnapsen.core.card import Card
@@ -48,54 +49,86 @@ class GUI:
         self._follower_card = GUICard()
         self._close_deck_button = None
         self._player_swap_trump_button = None
-        self._player_points_label = None
-        self._opponent_points_label = None
+        self._player_info_label = None
+        self._opponent_info_label = None
         self._trump_suit_label = None
         self._card_back = Card(CARD_BACK, 0)
+        self._actions_history: List[Action] = []
         self._build_play_space()
         # This feels hacky:
-        self.match_controller.on_event_callback_card_played = self._callback_cards_played
+        self.match_controller.action_callback = self._handle_match_controller_action
         self._cheat_mode = False
 
     def _build_play_space(self) -> None:
-        self._play_button = ttk.Button(self.window, text='Start Match', command=self._play_match)
+        info_label_width = 25
+        # Handle button styles
+        style = ttk.Style()
+        style.configure('TButton', background='green', focuscolor='none')
+        # style.map('TButton', background=[('active', 'red')])
+
+        self.window.option_add("*Background", "green")
+        self.window.configure(bg="green")
+        # High level UI Frames
+        self._play_button = ttk.Button(
+            self.window, text='Start Match', command=self._play_match, takefocus=False)
         self._play_button.pack(side=TOP)
+        # Actions Frame
+        action_frame = Frame(self.window)
+        action_frame.pack(side=BOTTOM)
+        action_frame_label = Label(action_frame, height=7)
+        action_frame_label.pack(side=BOTTOM)
+        self._action_frame_label = action_frame_label
+        # Area for all players
         players_frame = Frame(self.window)
-        deck_frame = Frame(self.window)
         players_frame.pack(side=LEFT)
+        # Area common deck
+        deck_frame = Frame(self.window)
         deck_frame.pack(side=RIGHT)
+        # Area for player 1
         player_frame = Frame(players_frame)
-        opponent_frame = Frame(players_frame)
-        common_space_frame = Frame(players_frame, height=200)
         player_frame.pack(side=TOP)
-        common_space_frame.pack(side=TOP)
-        opponent_frame.pack(side=BOTTOM)
+        # Area for laying down cards
+        common_space_frame = Frame(players_frame, height=200)
+        common_space_frame.pack(side=TOP, pady=50)
+        common_space_frame_padding = Label(common_space_frame, width=info_label_width)
+        common_space_frame_padding.pack(side=LEFT)
+        # Area for player 2
+        opponent_frame = Frame(players_frame)
+        opponent_frame.pack(side=TOP)
+        # Player info frames
         player_info_frame = Frame(player_frame)
-        opponent_info_frame = Frame(opponent_frame)
-        deck_info_frame = Frame(deck_frame)
         player_info_frame.pack(side=LEFT)
+        opponent_info_frame = Frame(opponent_frame)
         opponent_info_frame.pack(side=LEFT)
+        deck_info_frame = Frame(deck_frame)
         deck_info_frame.pack(side=BOTTOM)
-        cheat_mode_button = ttk.Button(deck_frame, text='Cheat Mode', command=self._togle_cheat_mode)
+        self._player_info_label = Label(player_info_frame, width=info_label_width)
+        self._player_info_label.pack(side=RIGHT)
+        self._opponent_info_label = Label(opponent_info_frame, width=info_label_width)
+        self._opponent_info_label.pack(side=RIGHT)
+        # Deck related sub frames
+        cheat_mode_button = ttk.Button(
+            deck_frame, text='Cheat Mode', command=self._toggle_cheat_mode, takefocus=False)
         cheat_mode_button.pack(side=TOP)
-        self._close_deck_button = ttk.Button(deck_frame, text='Close Deck', command=self._close_deck)
+        self._close_deck_button = ttk.Button(
+            deck_frame, text='Close Deck', command=self._close_deck, takefocus=False)
         self._close_deck_button.pack(side=TOP)
         deck_cards_frame = Frame(deck_frame)
         deck_cards_frame.pack(side=TOP)
         self._deck.make_card_frame(deck_cards_frame, RIGHT)
         self._trump_card.make_card_frame(deck_cards_frame, LEFT)
-        self._player_swap_trump_button = ttk.Button(deck_frame, text='Swap Trump', command=self._swap_trump)
+        self._player_swap_trump_button = ttk.Button(deck_frame, text='Swap Trump',
+                                                    command=self._swap_trump, takefocus=False)
         self._player_swap_trump_button.pack(side=BOTTOM)
-        self._player_points_label = Label(player_info_frame, width=10)
-        self._opponent_points_label = Label(opponent_info_frame, width=10)
         self._trump_suit_label = Label(deck_info_frame, width=10)
-        self._player_points_label.pack(side=RIGHT)
-        self._opponent_points_label.pack(side=RIGHT)
         self._trump_suit_label.pack(side=TOP)
+
         for i in self._player_cards.keys():
             self._player_cards[i].make_card_frame(player_frame,
-                                                  play_command=partial(self._play_card, i),
-                                                  play_marriage_command=partial(self._play_marriage, i),
+                                                  play_command=partial(
+                                                      self._play_card, i),
+                                                  play_marriage_command=partial(
+                                                      self._play_marriage, i),
                                                   enable_play_buttons=True)
         for i in self._opponent_cards.keys():
             self._opponent_cards[i].make_card_frame(opponent_frame)
@@ -111,9 +144,23 @@ class GUI:
         self._update_deck()
         self._update_labels()
 
-    def _callback_cards_played(self) -> None:
-        self._leader_card.update_card(self.match_controller.round_state.leading_card)
-        self._follower_card.update_card(self.match_controller.round_state.following_card)
+    def _update_actions_history(self, action: Action, reset: bool = False) -> None:
+        if reset:
+            self._actions_history = []
+            self._action_frame_label['text'] = "Action history:\n\n\n\n\n"
+        else:
+            self._actions_history.append(action)
+            while len(self._actions_history) > 5:
+                self._actions_history.pop(0)
+            self._action_frame_label['text'] = "Action history:\n" + \
+                "\n".join([str(action_item) for action_item in self._actions_history])
+
+    def _handle_match_controller_action(self, action: Action) -> None:
+        self._update_actions_history(action=action)
+        self._leader_card.update_card(
+            self.match_controller.round_state.leading_card)
+        self._follower_card.update_card(
+            self.match_controller.round_state.following_card)
         if self.match_controller.round_state.following_card is not None:
             self.window.update_idletasks()
             self.window.update()
@@ -125,9 +172,11 @@ class GUI:
         self._follower_card.update_card(None)
 
     def _update_labels(self) -> None:
-        self._player_points_label['text'] = self._points_string(self.player.round_points, self.player.match_points)
-        self._opponent_points_label['text'] = self._points_string(self.player.opponent_game_points,
-                                                                  self.player.opponent_match_points)
+        self.opponent
+        self._player_info_label['text'] = self._points_string(
+            self.player.name, self.player.round_points, self.player.match_points)
+        self._opponent_info_label['text'] = self._points_string(
+            self.opponent.name, self.opponent.round_points, self.opponent.match_points)
         if self.match_controller.round_state.trump_card is not None:
             self._trump_suit_label['text'] = Suit_string_map[self.match_controller.round_state.trump_card.suit]
 
@@ -153,7 +202,8 @@ class GUI:
             self._trump_card.update_card(None)
             self._deck.update_card(None)
         else:
-            self._trump_card.update_card(self.match_controller.round_state.trump_card)
+            self._trump_card.update_card(
+                self.match_controller.round_state.trump_card)
             self._deck.update_card(self._card_back)
 
     def _update_cards(self) -> None:
@@ -187,8 +237,8 @@ class GUI:
                     card = self._card_back
             self._opponent_cards[i].update_card(card)
 
-    def _points_string(self, game_points: int, match_points: int) -> str:
-        return """Game: {a} \nMatch: {b}""".format(a=game_points, b=match_points)
+    def _points_string(self, player_name: str, round_points: int, match_points: int) -> str:
+        return f"Player: {player_name}\nGame: {round_points} \nMatch: {match_points}"
 
     def _play_match(self) -> None:
         self._deck.update_card(self._card_back)
@@ -196,6 +246,7 @@ class GUI:
         self._new_game()
 
     def _new_game(self) -> None:
+        self._update_actions_history(None, reset=True)
         self._clear_played_cards()
         self.match_controller.new_round()
         self._handle_ai_actions()
@@ -245,7 +296,8 @@ class GUI:
     def _apply_action(self, action: Action) -> None:
 
         if action is None:
-            messagebox.showwarning('Title', 'Action is not valid - try something else...')
+            messagebox.showwarning(
+                'Title', 'Action is not valid - try something else...')
         else:
             self.match_controller.do_next_action(action)
             self._handle_ai_actions()
@@ -263,6 +315,6 @@ class GUI:
                              ' Starting new game'))
                 self._play_match()
 
-    def _togle_cheat_mode(self) -> None:
+    def _toggle_cheat_mode(self) -> None:
         self._cheat_mode = not self._cheat_mode
         self._update_screen()

@@ -78,23 +78,23 @@ class Hand(list):
         ValueError
             If card is not present in hand.
         """
-        card_in_hand = None
+        selected_card = None
         for i, card_in_hand in enumerate(self):
             if card == card_in_hand:
-                card_in_hand = self.pop(i)
+                selected_card = self.pop(i)
                 break
-        if card_in_hand is None:
-            raise ValueError("Cannot pop card - doesn't exist")
-        return card_in_hand
+        if selected_card is None:
+            raise ValueError("Card not in hand")
+        return selected_card
 
-    def cards_of_same_suit(self, suit: Suit, greater_than: int = 0) -> List[Card]:
+    def cards_of_same_suit(self, suit: Suit, greater_than: Value = 0) -> List[Card]:
         """Get cards of a matching suit.
 
         Parameters
         ----------
         suit : Suit
             Suit to check.
-        greater_than : int, optional
+        greater_than : Value, optional
             An optional value threshold (exclusive), by default 0
 
         Returns

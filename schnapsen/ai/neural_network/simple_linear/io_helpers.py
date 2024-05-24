@@ -7,6 +7,7 @@ from schnapsen.ai.neural_network.card_input import CardInput
 from schnapsen.core.action import Action
 from schnapsen.core.card import Card, Suit, Value
 from schnapsen.core.match_controller import MatchController
+from schnapsen.core.state import PublicRoundState
 from schnapsen.core.marriage import Marriage
 from schnapsen.core.player import Player
 
@@ -141,7 +142,7 @@ class IOHelpers:
         inputs[IOHelpers.my_points_to_victory_key] = player.match_state.match_point_limit - player.round_points
         inputs[IOHelpers.my_unearned_points_key] = 0
         inputs[IOHelpers.opponents_points_to_victory_key] = \
-            player.match_state.match_point_limit - player.opponent_game_points
+            player.match_state.match_point_limit - player.opponent_round_points
         inputs[IOHelpers.opponents_unearned_points_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_me_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_opponent_key] = 0
@@ -199,8 +200,8 @@ class IOHelpers:
                 return i
 
     @staticmethod
-    def get_random_legal_action(game, player):
-        player.evaluate_legal_actions(game.round_state.leading_card)
+    def get_random_legal_action(round_state: PublicRoundState, player: Player) -> torch.tensor:
+        player.evaluate_legal_actions(round_state.leading_card)
         action = random.choice(player.legal_actions)
         i = IOHelpers.get_index_for_action(action)
         return torch.tensor([i], dtype=torch.long), action

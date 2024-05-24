@@ -39,7 +39,7 @@ class MatchController:
         self._player_b = player_b
         self._players = [player_a, player_b]
         self._deck = None   # will be defined when game starts.
-        self.on_event_callback_card_played = None  # Func set externally for event handling, e.g. in a GUI.
+        self.action_callback = None  # Func set externally for event handling, e.g. in a GUI.
 
     def new_match(self) -> None:
         """Start a new match."""
@@ -106,6 +106,7 @@ class MatchController:
     def do_next_action(self, action: Action) -> None:
         """Perform the action of the player."""
         player = self.round_state.active_player
+        is_leader = player is self.round_state.leading_player
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.log(logging.DEBUG, 'Action %s, card %s, marriage %s, close deck: %s, swap_trump: %s',
                              player.name, str(action.card is not None), str(action.marriage is not None),
@@ -122,21 +123,20 @@ class MatchController:
             self._declare_marriage(player, action.marriage)
 
         if action.card is not None:
-            play_card = self._play_card(player, action.card)
-
-        if not self.round_state.have_round_winner and play_card is not None:
-            if player is self.round_state.leading_player:
+            play_card = player.hand.pop_card(action.card)
+            if is_leader:
                 self.round_state.leading_card = play_card
-                self._call_back_hand_played()
                 self.round_state.active_player = self.get_other_player(self.round_state.active_player)
             else:
                 self.round_state.following_card = play_card
-                self._call_back_hand_played()
-                self._end_of_hand()
 
-    def _call_back_hand_played(self) -> None:
-        if self.on_event_callback_card_played is not None:
-            self.on_event_callback_card_played()
+        # Used for UI event handling
+        if self.action_callback is not None:
+            self.action_callback(action)
+
+        # Finally handle end of hand
+        if not is_leader and not self.round_state.have_round_winner:
+            self._end_of_hand()
 
     def _end_of_hand(self) -> None:
         self.round_state.hand_winner = self.round_state.leading_player
@@ -152,8 +152,8 @@ class MatchController:
         points = self.round_state.leading_card.value + self.round_state.following_card.value \
             + self._award_marriage_points(self.round_state.hand_winner)
 
-        self._award_game_points(self.round_state.hand_winner, points,
-                                [self.round_state.leading_card, self.round_state.following_card])
+        self._award_round_points(self.round_state.hand_winner, points,
+                                 [self.round_state.leading_card, self.round_state.following_card])
 
         self._logger.debug(self.round_state.hand_winner.name + ' wins')
 
@@ -253,14 +253,14 @@ class MatchController:
 
         # Award player points immediately if possible
         if player.round_points != 0:
-            self._award_game_points(player, marriage.points)
+            self._award_round_points(player, marriage.points)
             marriage.points_awarded = True
 
-    def _play_card(self, player: Player, card: Card) -> None:
-        for idx, card_in_hand in enumerate(player.hand):
-            if card_in_hand == card:
-                return player.hand.pop(idx)
-        raise ValueError('Card not in hand')
+    # def _play_card(self, player: Player, card: Card) -> None:
+    #     for idx, card_in_hand in enumerate(player.hand):
+    #         if card_in_hand == card:
+    #             return player.hand.pop(idx)
+    #     raise ValueError('Card not in hand')
 
     # Handle a player closing the deck
     # Said player must be current leader
@@ -294,11 +294,11 @@ class MatchController:
         player.receive_card(self.round_state.trump_card)
         self.round_state.trump_card = jack_of_trumps
 
-    def _award_game_points(self, player: Player, points: int, cards: List[Card] = None) -> None:
+    def _award_round_points(self, winning_player: Player, points: int, cards: List[Card] = None) -> None:
         if cards is None:
             cards = []
-        for iter_player in self._players:
-            iter_player.notify_game_points_won(player, points, cards)
+        for player in self._players:
+            player.notify_round_points_won(winning_player, points, cards)
 
     def _award_match_points(self) -> None:
         """Notify players of their points, and keep track of them in the game controller, too."""

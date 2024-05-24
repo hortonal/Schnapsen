@@ -14,16 +14,10 @@ def main() -> None:
     logger = basic_logger()
     logger.debug('Starting main')
 
-    betty = BetterPlayer            # noqa: F841 - We switch between these for game testing
-    randy = RandomPlayer            # noqa: F841 - We switch between these for game testing
-    human = HumanPlayer             # noqa: F841 - We switch between these for game testing
-    nanny = NNSimpleLinearPlayer    # noqa: F841 - We switch between these for game testing
-
-    player1 = human()
-    # player2 = nanny()
-    # player2 = betty(name="Betty")
-    # player2 = randy(name="Randy")
-    player2 = nanny()
+    player1 = HumanPlayer()
+    player2 = BetterPlayer(name="Betty")    # Only the last player is actually used. A bit of a linting hack..
+    player2 = RandomPlayer(name="Randy")
+    player2 = NNSimpleLinearPlayer("Simple Neural Net")
 
     human = None
     for player in [player1, player2]:
