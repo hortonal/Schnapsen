@@ -134,9 +134,9 @@ class Player:
         return self.round_points >= self.match_state.round_point_limit
 
     def evaluate_legal_actions(self, opponents_card: Card) -> List[Action]:  # noqa: C901 (it's complex still...)
-        """Check what legal actions are available.
+        """Determine the set of legal actions.
 
-        TODO: Make this less ugly...
+        TODO: Reduce complexity.
 
         Parameters
         ----------

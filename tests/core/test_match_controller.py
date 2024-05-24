@@ -83,8 +83,10 @@ def test_regression():
     with pytest.raises(ValueError, match="not in hand"):
         match_controller.do_next_action(Action(card=Card(Suit.SPADE, Value.KING)))
 
+    # TODO: Cards of same suit played
+    # TODO: Cards of different suits played (no trump)
     # TODO: Trump Marriage
     # TODO: Normal Marriage
     # TODO: Swap Trump
     # TODO: Close Deck
-    # TODO: Various match point scenarios
+    # TODO: The various match point scenarios

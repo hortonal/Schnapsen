@@ -2,6 +2,7 @@
 
 Heavily references https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 """
+from dataclasses import dataclass
 import logging
 import math
 import random
@@ -26,6 +27,15 @@ LEARNING_RATE = 0.0001
 EPS_START = 0.95
 EPS_END = 0.05
 EPS_DECAY = 100000
+
+
+@dataclass
+class TrainConfig:
+    """Container for basic training config."""
+    number_actions: int
+    memory_size: int = 1000
+    batch_size: int = 100
+    update_reference_model: int = 1000
 
 
 class Trainer:
@@ -89,7 +99,7 @@ class Trainer:
             (match_points - prior_match_points) +   # noqa: W504
             # Game points (but not as much as match points)
             (game_points - prior_game_points) / \
-             self.match_controller.match_state.round_point_limit,
+            self.match_controller.match_state.round_point_limit,
             dtype=torch.float)
 
     def __optimize(self, batch_size):
@@ -142,34 +152,25 @@ class Trainer:
     def _update_reference_model(self) -> None:
         self.reference_model.load_state_dict(self.model.state_dict())
 
-    def train(self, number_actions: int = 10000, memory_size: int = 1000,
-              batch_size: int = 100, update_reference_model: int = 1000) -> None:
+    def train(self, train_config: TrainConfig) -> None:
         """Main training routing entry point.
-
-        TODO: Remember what these params do!.
 
         Parameters
         ----------
-        number_actions : int, optional
-            _description_, by default 10000
-        memory_size : int, optional
-            _description_, by default 1000
-        batch_size : int, optional
-            _description_, by default 100
-        update_reference_model : int, optional
-            _description_, by default 1000
+        train_config : TrainConfig
+            A training config object. See TrainConfig for details.
         """
-        self.memory = ReplayMemory(memory_size)
+        self.memory = ReplayMemory(train_config.memory_size)
         self._start_new_match()
 
-        for i in range(number_actions):
-            self.single_training_loop(batch_size)
+        for i in range(train_config.number_actions):
+            self.single_training_loop(train_config.batch_size)
             # Every few thousand epochs save out the trained model to disk
             # (so we can break the program without losing progress)
-            if i % update_reference_model == 0 and i > 0:
+            if i % train_config.update_reference_model == 0 and i > 0:
                 self._update_reference_model()
                 logging.info("%i actions run. Optimizer count: %i. loss: %f",
-                             i, self.optimizer_count, self._cumulative_loss / update_reference_model)
+                             i, self.optimizer_count, self._cumulative_loss / train_config.update_reference_model)
                 self._cumulative_loss = 0
                 self.player.save_model()
 

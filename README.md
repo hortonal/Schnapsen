@@ -91,7 +91,6 @@ flake8
 Here's a non-exhaustive laundry list of things to work on next:
 
 - Add a simple CI chain with automated test/linting
-- Improve the core package game controller
-  - Clarify sharable game state vs all game state for simpler bot/ai player development
 - Improve existing BetterPlayer bot (there should be some very easy wins)
-- Improve/rewrite simple AI with some more advanced techniques
+- Improve/rewrite simple NN AI. Perhaps try LTSM?
+- Compare to a monte carlo type AI?

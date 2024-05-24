@@ -26,7 +26,7 @@ class IOHelpers:
     d_marriage = Marriage(Card(Suit.DIAMOND, Value.QUEEN), Card(Suit.DIAMOND, Value.KING))
     s_marriage = Marriage(Card(Suit.SPADE, Value.QUEEN), Card(Suit.SPADE, Value.KING))
     h_marriage = Marriage(Card(Suit.HEART, Value.QUEEN), Card(Suit.HEART, Value.KING))
-    c_marriage = Marriage( Card(Suit.CLUB, Value.QUEEN), Card(Suit.CLUB, Value.KING))
+    c_marriage = Marriage(Card(Suit.CLUB, Value.QUEEN), Card(Suit.CLUB, Value.KING))
 
     output_actions = {
         0: Action(card=Card(Suit.DIAMOND, Value.JACK), marriage=None, swap_trump=False, close_deck=False),

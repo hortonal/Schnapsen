@@ -2,11 +2,18 @@
 from schnapsen.ai.better_player import BetterPlayer
 from schnapsen.ai.neural_network.simple_linear.nn_linear_player import NNSimpleLinearPlayer
 from schnapsen.ai.neural_network.simple_linear.trainer import Trainer
+from schnapsen.ai.neural_network.simple_linear.trainer import TrainConfig
 from schnapsen.logs import basic_logger
 
 
-def train() -> None:
-    """Training script for the simple neural network model."""
+def train(train_config: TrainConfig) -> None:
+    """Training script for the simple neural network model.
+
+    Parameters
+    ----------
+    train_config : TrainConfig
+        Configuration for the training scenario
+    """
     logger = basic_logger()
     logger.debug('Starting training alogorithm.')
 
@@ -37,8 +44,8 @@ def train() -> None:
         pass
 
     # Model is saved every update_reference_model number of 'insert unit here'
-    trainer.train(number_actions=10000000, memory_size=20000, batch_size=300, update_reference_model=1000)
+    trainer.train(train_config)
 
 
 if __name__ == "__main__":
-    train()
+    train(TrainConfig(number_actions=10000000, memory_size=20000, batch_size=300, update_reference_model=1000))
