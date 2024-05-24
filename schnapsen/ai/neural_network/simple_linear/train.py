@@ -17,14 +17,14 @@ def train() -> None:
 
     try:
         # Training against the existing NN player on an evolving basis
-        neural_network_player = NNSimpleLinearPlayer()
+        neural_network_player = NNSimpleLinearPlayer(name="NN_Reference")
         neural_network_player.load_model()
         opponents.append(neural_network_player)
         logger.info('Valid existing neural network model loaded and added to opponents')
     except (ModuleNotFoundError, FileNotFoundError):
         pass
 
-    nn_player = NNSimpleLinearPlayer()
+    nn_player = NNSimpleLinearPlayer(name="NN_Learner")
 
     trainer = Trainer(nn_player, opponents)
 

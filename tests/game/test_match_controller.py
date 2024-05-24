@@ -29,6 +29,7 @@ def test_regression():
     match_controller = MatchController(player_a=Player(name="player_a", automated=False),
                                        player_b=Player(name="player_b", automated=False))
 
+    match_controller.new_match()
     assert match_controller.match_state.player_a_match_points == 0
     assert match_controller.match_state.player_b_match_points == 0
 
@@ -54,7 +55,7 @@ def test_regression():
     cards.reverse()  # Cards are popped off the end so we reverse this list to behave as intended.
     deck.extend(cards)
 
-    match_controller.new_game(deck)
+    match_controller.new_round(deck)
     player_1 = match_controller.round_state.active_player
     player_2 = match_controller.get_other_player(player_1)
     # Test the deal

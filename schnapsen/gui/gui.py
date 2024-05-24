@@ -33,9 +33,9 @@ class GUI:
         human_player : Player
             The human player object interacting with the UI.
         """
-        self.game = match_controller
+        self.match_controller = match_controller
         self.player = human_player
-        self.opponent = self.game.get_other_player(self.player)
+        self.opponent = self.match_controller.get_other_player(self.player)
         self.window = Tk()
         self._player_cards = {}
         self._opponent_cards = {}
@@ -54,7 +54,7 @@ class GUI:
         self._card_back = Card(CARD_BACK, 0)
         self._build_play_space()
         # This feels hacky:
-        self.game.on_event_callback_card_played = self._callback_cards_played
+        self.match_controller.on_event_callback_card_played = self._callback_cards_played
         self._cheat_mode = False
 
     def _build_play_space(self) -> None:
@@ -106,15 +106,15 @@ class GUI:
 
     def _update_screen(self) -> None:
         # When human action re-evaluate legal choices some UI can update accordingly
-        self.game.evaluate_active_player_actions()
+        self.match_controller.evaluate_active_player_actions()
         self._update_cards()  # Handle swamp trump and close deck buttons
         self._update_deck()
         self._update_labels()
 
     def _callback_cards_played(self) -> None:
-        self._leader_card.update_card(self.game.round_state.leading_card)
-        self._follower_card.update_card(self.game.round_state.following_card)
-        if self.game.round_state.following_card is not None:
+        self._leader_card.update_card(self.match_controller.round_state.leading_card)
+        self._follower_card.update_card(self.match_controller.round_state.following_card)
+        if self.match_controller.round_state.following_card is not None:
             self.window.update_idletasks()
             self.window.update()
             time.sleep(.5)  # This isn't very nice but works just fine
@@ -128,8 +128,8 @@ class GUI:
         self._player_points_label['text'] = self._points_string(self.player.round_points, self.player.match_points)
         self._opponent_points_label['text'] = self._points_string(self.player.opponent_game_points,
                                                                   self.player.opponent_match_points)
-        if self.game.round_state.trump_card is not None:
-            self._trump_suit_label['text'] = Suit_string_map[self.game.round_state.trump_card.suit]
+        if self.match_controller.round_state.trump_card is not None:
+            self._trump_suit_label['text'] = Suit_string_map[self.match_controller.round_state.trump_card.suit]
 
     def _update_deck(self) -> None:
         can_swamp_trump = False
@@ -149,11 +149,11 @@ class GUI:
             self._close_deck_button['state'] = 'disable'
 
         # Handle close deck
-        if self.game.round_state.deck_closed:
+        if self.match_controller.round_state.deck_closed:
             self._trump_card.update_card(None)
             self._deck.update_card(None)
         else:
-            self._trump_card.update_card(self.game.round_state.trump_card)
+            self._trump_card.update_card(self.match_controller.round_state.trump_card)
             self._deck.update_card(self._card_back)
 
     def _update_cards(self) -> None:
@@ -192,17 +192,17 @@ class GUI:
 
     def _play_match(self) -> None:
         self._deck.update_card(self._card_back)
-        self.game.new_match()
+        self.match_controller.new_match()
         self._new_game()
 
     def _new_game(self) -> None:
         self._clear_played_cards()
-        self.game.new_game()
+        self.match_controller.new_round()
         self._handle_ai_actions()
         self._update_screen()
 
     def _handle_ai_actions(self) -> None:
-        self.game.progress_automated_actions()
+        self.match_controller.progress_automated_actions()
 
     def _play_marriage(self, index: int) -> None:
         ui_card = self._player_cards[index]
@@ -247,19 +247,20 @@ class GUI:
         if next_action is None:
             messagebox.showwarning('Title', 'Action is not valid - try something else...')
         else:
-            self.game.do_next_action(next_action)
+            self.match_controller.do_next_action(next_action)
             self._handle_ai_actions()
             self._update_screen()
 
-            if self.game.round_state.have_round_winner:
-                messagebox.showinfo(title='Game Winner!!!',
-                                    message='Winner is: ' + self.game.round_state.round_winner.name)
+            if self.match_controller.round_state.have_round_winner:
+                messagebox.showinfo(title='Round Winner!',
+                                    message=f'Winner is: {self.match_controller.round_state.round_winner.name}')
                 self._new_game()
 
-            if self.game.match_state.have_match_winner:
+            if self.match_controller.match_state.have_match_winner:
                 messagebox.showinfo(
                     title='Match Winner!!!',
-                    message='Winner is: ' + self.game.match_state.match_winner.name + '. Starting new game')
+                    message=(f'Match winner is: {self.match_controller.match_state.match_winner.name}.'
+                             ' Starting new game'))
                 self._play_match()
 
     def _togle_cheat_mode(self) -> None:

@@ -29,9 +29,9 @@ class BetterPlayer(Player):
                     selected_action = action
                     break
 
-        if selected_action is None and self.game.round_state.leading_player:
+        if selected_action is None and self.round_state.leading_player:
             selected_action = self._decide_leader_action()
-        if selected_action is None and not self.game.round_state.leading_player:
+        if selected_action is None and not self.round_state.leading_player:
             selected_action = self._decide_follower_action()
 
         assert selected_action is not None, 'No action selected!'

@@ -37,7 +37,7 @@ def play_automated_matches(match_controller: MatchController, number_of_matches:
     for _ in range(number_of_matches):
         match_controller.play_automated_match()
 
-        if match_controller.match_winner is player1:
+        if match_controller.match_state.match_winner is player1:
             player1_wins += 1
         else:
             player2_wins += 1

@@ -47,7 +47,6 @@ class Player:
         self.opponent_cards_won = []
         self.opponent_match_points = 0
         self.opponent_game_points = 0
-        # self.game = None  # Assigned by game controller
         self.round_state: PublicRoundState = None  # Assigned by game controller
         self.match_state: PublicMatchState = None  # Assigned by game controller
         self.declare_win_callback: Callable = None  # Assigned by game controller
@@ -68,13 +67,7 @@ class Player:
         """
         raise Exception('Must be implemented by child')
 
-    def reset_for_new_match(self) -> None:
-        """Prepare a player for next match."""
-        self.match_points = 0
-        self.opponent_match_points = 0
-        self.reset_for_new_round()
-
-    def reset_for_new_round(self) -> None:
+    def new_round(self) -> None:
         """Prepare a player for next round."""
         self.hand = Hand()
         self.cards_won = []
@@ -111,14 +104,11 @@ class Player:
             self.round_points += points
             # After we get awarded points, immediately see if we can terminate the round.
             self._check_and_declare_win()
-            if cards is not None:
-                for card in cards:
-                    self.cards_won.append(card)
+            self.cards_won.extend(cards)
+
         else:
             self.opponent_game_points += points
-            if cards is not None:
-                for card in cards:
-                    self.opponent_cards_won.append(card)
+            self.opponent_cards_won.extend(cards)
 
     def notify_match_points_won(self, player: Player, points: int) -> None:
         """Notify Player of match points won.
@@ -138,10 +128,10 @@ class Player:
     def _check_and_declare_win(self) -> None:
         # Check to see if we have enough points to declare a victory.
         if self._enough_points():
-            self.game.declare_game_win(self)
+            self.declare_win_callback(self)
 
     def _enough_points(self) -> None:
-        return self.round_points >= self.game.match_state.round_point_limit
+        return self.round_points >= self.match_state.round_point_limit
 
     def evaluate_legal_actions(self, opponents_card: Card) -> List[Action]:  # noqa: C901 (it's complex still...)
         """Check what legal actions are available.
@@ -156,10 +146,10 @@ class Player:
         legal_actions = []
 
         if opponents_card is None:
-            if self.hand.has_card(Card(self._trump.suit, Value.JACK)) and not self.game.round_state.deck_closed:
+            if self.hand.has_card(Card(self._trump.suit, Value.JACK)) and not self.round_state.deck_closed:
                 legal_actions.append(Action(swap_trump=True))
 
-            if not self.game.round_state.deck_closed:
+            if not self.round_state.deck_closed:
                 legal_actions.append(Action(close_deck=True))
 
             marriages = self.hand.available_marriages()
@@ -172,7 +162,7 @@ class Player:
             for card in self.hand:
                 legal_actions.append(Action(card=card))
         else:
-            if not self.game.round_state.deck_closed:
+            if not self.round_state.deck_closed:
                 for card in self.hand:
                     legal_actions.append(Action(card=card))
             else:

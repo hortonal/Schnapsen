@@ -12,12 +12,12 @@ class NNSimpleLinearPlayer(Player):
         super().__init__(name, automated=True, requires_model_load=True)
         self.model = None
         self._file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  'trained_models', self.__class__.__name__ + '_model.txt')
+                                  'trained_models', self.__class__.__name__ + '_model.bin')
 
     def select_action(self):
-        inputs = IOHelpers.create_input_from_game_state(self.game, self)
+        inputs = IOHelpers.create_input_from_game_state(self)
         with torch.no_grad():
-            _, action = IOHelpers.policy(self.model(inputs), self.game, self)
+            _, action = IOHelpers.policy(self.model(inputs), self)
         return action
 
     def load_model(self):

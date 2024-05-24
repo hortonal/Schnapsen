@@ -73,7 +73,7 @@ class IOHelpers:
         return suit * 20 + value
 
     @staticmethod
-    def create_input_from_game_state(game: MatchController, player: Player) -> Dict:
+    def create_input_from_game_state(player: Player) -> Dict:
 
         # Make a flat vector of cards each with a state?
         # Make a convolution grd?
@@ -133,15 +133,15 @@ class IOHelpers:
             card_input = inputs[IOHelpers.card_key(card.suit, card.value)]
             card_input.won_by_opponent = True
 
-        lead_card = game.round_state.leading_card
+        lead_card = player.round_state.leading_card
         if lead_card is not None:
             inputs[IOHelpers.card_key(lead_card.suit, lead_card.value)].is_leading_card = True
 
-        inputs[IOHelpers.deck_closed_key] = 1 if game.round_state.deck_closed else 0
-        inputs[IOHelpers.my_points_to_victory_key] = game.match_state.match_point_limit - player.round_points
+        inputs[IOHelpers.deck_closed_key] = 1 if player.round_state.deck_closed else 0
+        inputs[IOHelpers.my_points_to_victory_key] = player.match_state.match_point_limit - player.round_points
         inputs[IOHelpers.my_unearned_points_key] = 0
         inputs[IOHelpers.opponents_points_to_victory_key] = \
-            game.match_state.match_point_limit - player.opponent_game_points
+            player.match_state.match_point_limit - player.opponent_game_points
         inputs[IOHelpers.opponents_unearned_points_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_me_key] = 0
         inputs[IOHelpers.match_points_on_offer_to_opponent_key] = 0
@@ -150,17 +150,17 @@ class IOHelpers:
         # Flat vector is simplest. Or do some clever CNN?
 
         # Simple flat vector to start with...
-        return IOHelpers.__create_flat_tensor(inputs, game)
+        return IOHelpers.__create_flat_tensor(inputs, player)
 
     @staticmethod
-    def __create_flat_tensor(inputs, game: MatchController):
+    def __create_flat_tensor(inputs, player: Player):
         # (With performance in mind, it'd be better to create the
         # tensor elements directly instead of using a list but hey...)
         input_vector = []
         for item in inputs.values():
             if isinstance(item, CardInput):
                 input_vector.append(item.suit / 3)  # Normalise suit value
-                input_vector.append(item.value / game.match_state.round_point_limit)  # Normalise card value to fraction of a game
+                input_vector.append(item.value / player.match_state.round_point_limit)  # Normalise card value to fraction of a game
                 input_vector.append(item.in_my_hand)
                 input_vector.append(item.in_opponent_hand)
                 input_vector.append(item.won_by_me)
@@ -168,8 +168,8 @@ class IOHelpers:
                 input_vector.append(item.is_leading_card)
 
         input_vector.append(inputs[IOHelpers.deck_closed_key])
-        input_vector.append(inputs[IOHelpers.my_points_to_victory_key] / game.match_state.round_point_limit)
-        input_vector.append(inputs[IOHelpers.opponents_points_to_victory_key] / game.match_state.round_point_limit)
+        input_vector.append(inputs[IOHelpers.my_points_to_victory_key] / player.match_state.round_point_limit)
+        input_vector.append(inputs[IOHelpers.opponents_points_to_victory_key] / player.match_state.round_point_limit)
 
         # input_vector.append(inputs[IOHelpers.my_unearned_points_key] / game.match_state.round_point_limit)
         # input_vector.append(inputs[IOHelpers.opponents_unearned_points_key] / game.match_state.round_point_limit)
@@ -206,8 +206,8 @@ class IOHelpers:
         return torch.tensor([i], dtype=torch.long), action
 
     @staticmethod
-    def get_legal_actions(game, player):
-        player.evaluate_legal_actions(game.round_state.leading_card)
+    def get_legal_actions(player: Player) -> torch.tensor:
+        player.evaluate_legal_actions(player.round_state.leading_card)
         legal_moves = []
         legal_actions = []
         for i in range(len(IOHelpers.output_actions)):
@@ -219,8 +219,8 @@ class IOHelpers:
     # Pick an action based on values. Ignore illegal moves
     # convert it into an actual action
     @staticmethod
-    def policy(q_values, game, player):
-        legal_mask, legal_actions = IOHelpers.get_legal_actions(game, player)
+    def policy(q_values, player):
+        legal_mask, legal_actions = IOHelpers.get_legal_actions(player)
 
         # set all illegal moves to a quality value of -100
         # this is more than a little hacky but in reality filters out illegal moves sufficiently

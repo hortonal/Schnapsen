@@ -35,42 +35,28 @@ class MatchController:
         self._logger = logging.getLogger()
         self._round_point_limit = round_point_limit
         self._match_point_limit = match_point_limit
-        # Initialise a bunch of variables and state
         self._player_a = player_a
         self._player_b = player_b
         self._players = [player_a, player_b]
-        # TODO: this will be removed!
-        for player in self._players:
-            player.game = self
-
-        self._deck = []
-        self._reset_state_for_new_match()
-        self._reset_state_for_new_round()
+        self._deck = None   # will be defined when game starts.
         self.on_event_callback_card_played = None  # Func set externally for event handling, e.g. in a GUI.
 
-    def _reset_state_for_new_match(self) -> None:
+    def new_match(self) -> None:
+        """Start a new match."""
         self.match_state = PublicMatchState(
             round_point_limit=self._round_point_limit,
             match_point_limit=self._match_point_limit
         )
         for player in self._players:
+            player.match_points = 0
             player.match_state = self.match_state
-            player.reset_for_new_match()
+            player.declare_win_callback = self.declare_game_win
+
         self._define_first_deal()
-        self.match_winner = None
-        self.have_match_winner = False
+        self.match_state.match_winner = None
+        self.match_state.have_match_winner = False
 
-    def _reset_state_for_new_round(self) -> None:
-        self.round_state = PublicRoundState()
-        for player in self._players:
-            player.reset_for_new_round()
-        self._marriages_info = {}
-
-    def new_match(self) -> None:
-        """Start a new match."""
-        self._reset_state_for_new_match()
-
-    def new_game(self, deck: Deck = None) -> None:
+    def new_round(self, deck: Deck = None) -> None:
         """Start a new game within match.
 
         Parameters
@@ -78,7 +64,12 @@ class MatchController:
         deck : Deck, optional
             Provide the game with a deck. This is mostly for testing, by default None
         """
-        self._reset_state_for_new_round()
+        self.round_state = PublicRoundState()
+        for player in self._players:
+            player.round_state = self.round_state
+            player.new_round()
+        self._marriages_info = {}
+
         if deck is None:
             self._deck = Deck()
             self._deck.shuffle()
@@ -93,7 +84,7 @@ class MatchController:
         """Progress match/game state automatically."""
         self.new_match()
         while not self.match_state.have_match_winner:
-            self.new_game()
+            self.new_round()
             while not self.round_state.have_round_winner:
                 self.progress_automated_actions()  # If AI vs. AI, whole game plays
 
@@ -200,10 +191,10 @@ class MatchController:
         self._check_and_handle_match_win()
 
     def _check_and_handle_match_win(self) -> None:
-        if self._player_a.match_points >= self.match_state.match_point_limit:
+        if self.match_state.player_a_match_points >= self.match_state.match_point_limit:
             self.match_state.match_winner = self._player_a
             self.match_state.have_match_winner = True
-        if self._player_b.match_points >= self.match_state.match_point_limit:
+        if self.match_state.player_b_match_points >= self.match_state.match_point_limit:
             self.match_state.match_winner = self._player_b
             self.match_state.have_match_winner = True
 
@@ -310,7 +301,7 @@ class MatchController:
             iter_player.notify_game_points_won(player, points, cards)
 
     def _award_match_points(self) -> None:
-
+        """Notify players of their points, and keep track of them in the game controller, too."""
         if self.round_state.deck_closed_by_player:
             if self.round_state.deck_closer == self.round_state.round_winner:
                 match_points = self.round_state.deck_closer_points
@@ -319,6 +310,13 @@ class MatchController:
         else:
             match_points = self._calc_match_points_on_offer(self.round_state.round_winner)
 
+        # Update our own records
+        if self.round_state.round_winner is self._player_a:
+            self.match_state.player_a_match_points += match_points
+        else:
+            self.match_state.player_b_match_points += match_points
+
+        # Notify Player objects
         for iter_player in self._players:
             iter_player.notify_match_points_won(self.round_state.round_winner, match_points)
 
