@@ -58,7 +58,7 @@ class GUI:
         self._cheat_mode = False
 
     def _build_play_space(self) -> None:
-        self._play_button = ttk.Button(self.window, text='Play', command=self._play_match)
+        self._play_button = ttk.Button(self.window, text='Start Match', command=self._play_match)
         self._play_button.pack(side=TOP)
         players_frame = Frame(self.window)
         deck_frame = Frame(self.window)
@@ -78,7 +78,7 @@ class GUI:
         deck_info_frame.pack(side=BOTTOM)
         cheat_mode_button = ttk.Button(deck_frame, text='Cheat Mode', command=self._togle_cheat_mode)
         cheat_mode_button.pack(side=TOP)
-        self._close_deck_button = ttk.Button(deck_frame, text='Close_deck', command=self._close_deck)
+        self._close_deck_button = ttk.Button(deck_frame, text='Close Deck', command=self._close_deck)
         self._close_deck_button.pack(side=TOP)
         deck_cards_frame = Frame(deck_frame)
         deck_cards_frame.pack(side=TOP)
@@ -242,12 +242,12 @@ class GUI:
 
         self._apply_action(next_action)
 
-    def _apply_action(self, next_action: Action) -> None:
+    def _apply_action(self, action: Action) -> None:
 
-        if next_action is None:
+        if action is None:
             messagebox.showwarning('Title', 'Action is not valid - try something else...')
         else:
-            self.match_controller.do_next_action(next_action)
+            self.match_controller.do_next_action(action)
             self._handle_ai_actions()
             self._update_screen()
 

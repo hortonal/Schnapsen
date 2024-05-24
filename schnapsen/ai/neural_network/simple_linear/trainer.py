@@ -31,11 +31,15 @@ EPS_DECAY = 100000
 
 @dataclass
 class TrainConfig:
-    """Container for basic training config."""
+    """Container for basic training config.
+
+    TODO: Detail what this parameters do
+    """
     number_actions: int
     memory_size: int = 1000
     batch_size: int = 100
-    update_reference_model: int = 1000
+    nb_training_loops_before_reference_model_update: int = 1000
+    update_model_on_disk: bool = True
 
 
 class Trainer:
@@ -167,12 +171,15 @@ class Trainer:
             self.single_training_loop(train_config.batch_size)
             # Every few thousand epochs save out the trained model to disk
             # (so we can break the program without losing progress)
-            if i % train_config.update_reference_model == 0 and i > 0:
+            if i % train_config.nb_training_loops_before_reference_model_update == 0 and i > 0:
                 self._update_reference_model()
-                logging.info("%i actions run. Optimizer count: %i. loss: %f",
-                             i, self.optimizer_count, self._cumulative_loss / train_config.update_reference_model)
+                logging.info("%i actions run. Optimizer count: %i. loss: %f", i, self.optimizer_count,
+                             self._cumulative_loss / train_config.nb_training_loops_before_reference_model_update)
                 self._cumulative_loss = 0
-                self.player.save_model()
+
+                # For testing we may wish to not update the persisted model
+                if train_config.update_model_on_disk:
+                    self.player.save_model()
 
                 # Reset game state and play a bunch of games for validation
                 self._start_new_match()

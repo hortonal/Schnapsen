@@ -39,7 +39,7 @@ python -m schnapsen
 
 Basic UI:
 
-- Deal the cards by hitting the "Play" button.
+- Deal the cards by hitting the "Start Match" button.
 - Play a card via the "P" button underneath it
 - Play part of a Marriage, if applicable, via the "M" button beneath a Queen/King
 - The other buttons should be self explanatory

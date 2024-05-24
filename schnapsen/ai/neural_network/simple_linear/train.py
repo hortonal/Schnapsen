@@ -35,7 +35,8 @@ def train(train_config: TrainConfig) -> None:
 
     trainer = Trainer(nn_player, opponents)
 
-    # Try and continue training where we left off if possible.
+    # If an existing model exists on file store, we'll load it up and continue training it.
+    # This lets us break training into multiple sessions.
     try:
         nn_player.load_model()
         trainer.initialise_with_players_model()
@@ -43,9 +44,11 @@ def train(train_config: TrainConfig) -> None:
     except (ModuleNotFoundError, FileNotFoundError):
         pass
 
-    # Model is saved every update_reference_model number of 'insert unit here'
     trainer.train(train_config)
 
 
 if __name__ == "__main__":
-    train(TrainConfig(number_actions=10000000, memory_size=20000, batch_size=300, update_reference_model=1000))
+    train(TrainConfig(number_actions=10000000,
+                      memory_size=20000,
+                      batch_size=300,
+                      nb_training_loops_before_reference_model_update=1000))
