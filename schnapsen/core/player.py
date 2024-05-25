@@ -36,10 +36,25 @@ class Player:
         requires_model_load : bool, optional
             If True attempt to load model before using (e.g. for AI models), by default False
         """
+        # Not critical but useful for logging/UI.
         self.name = name
+        # Used for AI players to progress actions automatically when possible.
         self.automated = automated
+        # Used for model based players alongside a load_model method on the player.
+        # TODO: make ModelPlayer child of the Player object and replace this bool with a simple isinstance check.
         self.requires_model_load = requires_model_load
+        # Track the player's current hand. This could/should also be tracked by the match controller but it's cleaner
+        # for a player to own his hand.
         self.hand = Hand()
+        # Allow a player to access public game state.
+        self.round_state: PublicRoundState = None  # Assigned by game controller, contains public round state
+        self.match_state: PublicMatchState = None  # Assigned by game controller, contains public match state
+        self.declare_win_callback: Callable = None  # Assigned by game controller. This is used but isn't necessary
+        # Track the current set of legal actions.
+        self.legal_actions: List[Action] = []
+        # Track game state independently of the match controller.
+        # TODO: If we're assuming bots have good memory of previous match state, we should remove these in favour of
+        # using the public state objects above.
         self.cards_won = []
         self.match_points = 0
         self.round_points = 0
@@ -47,11 +62,7 @@ class Player:
         self.opponent_cards_won = []
         self.opponent_match_points = 0
         self.opponent_round_points = 0
-        self.round_state: PublicRoundState = None  # Assigned by game controller
-        self.match_state: PublicMatchState = None  # Assigned by game controller
-        self.declare_win_callback: Callable = None  # Assigned by game controller
         self._trump = None
-        self.legal_actions = []
 
     def select_action(self) -> Action:
         """Method for selecting Player Action.

@@ -19,6 +19,11 @@ dynamic = ["version"]
 addopts = "--strict-markers --cov=schnapsen --cov-fail-under=80"
 testpaths = ["tests"]
 
+[tool.coverage.run]
+omit = [
+    # Ignore the __main__ file from test coverage
+    "schnapsen/__main__.py",
+    ]
 
 [tool.isort]
 line_length = 120
