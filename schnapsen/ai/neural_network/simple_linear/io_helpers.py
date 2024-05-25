@@ -233,7 +233,7 @@ class IOHelpers:
         selected_action_id = indices.unsqueeze(0)
 
         if selected_action is None:
-            raise Exception('No valid action found')
+            raise ValueError('No valid action found')
 
         return selected_action_id, selected_action
 

@@ -75,8 +75,13 @@ class Player:
         -------
         Action
             The selected game Action.
+
+        Raises
+        ------
+        NotImplementedError
+            If a child object fails to implement this necessary method.
         """
-        raise Exception('Must be implemented by child')
+        raise NotImplementedError('Must be implemented by child')
 
     def new_round(self) -> None:
         """Prepare a player for next round."""

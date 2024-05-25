@@ -34,5 +34,5 @@ class TestMarriage(TestCase):
         other = Card(0, 2)
         marriage = Marriage(queen_card, king_card)
 
-        with pytest.raises(Exception, match="Invalid card"):
+        with pytest.raises(ValueError, match="Invalid card"):
             marriage.notify_card_played(other)

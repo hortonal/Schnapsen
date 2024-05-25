@@ -269,10 +269,10 @@ class MatchController:
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug('Player closing deck %s', player)
         if self.round_state.deck_closed_by_player:
-            raise Exception("Deck already closed")
+            raise ValueError("Deck already closed")
 
         if player is not self.round_state.leading_player:
-            raise Exception("non-leading player can't close deck")
+            raise ValueError("non-leading player can't close deck")
 
         self.round_state.deck_closed = True
         self.round_state.deck_closed_by_player = True
