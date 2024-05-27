@@ -4,17 +4,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from schnapsen.core.card import Card
-from schnapsen.core.marriage import Marriage
 
 
 @dataclass
 class Action:
     """A wrapper for possible game actions."""
 
-    card: Card = None           # The Card involved in the Action if appropriate.
-    marriage: Marriage = None   # The Marriage involved in the Action if appropriate.
-    swap_trump: bool = False    # True if the action is swapping trumps
-    close_deck: bool = False    # True if the action is closing the deck
+    card: Card = None                   # The Card involved in the Action if appropriate
+    declare_marriage: bool = False      # True, with a card set, declares a marriage of that suit
+    swap_trump: bool = False            # True if the action is swapping trumps
+    close_deck: bool = False            # True if the action is closing the deck
 
     def _nice_str(self) -> str:
         return_string = ''
@@ -24,7 +23,7 @@ class Action:
         if self.close_deck:
             return_string += 'Close Deck'
 
-        if self.marriage is not None:
+        if self.declare_marriage:
             return_string += 'Play marriage - '
 
         if self.card is not None:
@@ -58,5 +57,5 @@ class Action:
             bool: True if items equivalent, otherwise False.
         """
         if isinstance(other, Action):
-            return self.card == other.card and self.marriage == other.marriage and \
+            return self.card == other.card and self.declare_marriage == other.declare_marriage and \
                 self.swap_trump == other.swap_trump and self.close_deck == other.close_deck

@@ -216,7 +216,7 @@ class GUI:
                 for action in self.match_controller.get_valid_moves(self.match_state):
                     if action.card == card:
                         self._player_cards[i].play_button['state'] = 'normal'
-                        if action.marriage is not None:
+                        if action.declare_marriage:
                             self._player_cards[i].play_marriage_button['state'] = 'normal'
 
             else:
@@ -259,7 +259,7 @@ class GUI:
 
         next_action = None
         for action in self.match_controller.get_valid_moves(self.match_state):
-            if action.card == ui_card.card and action.marriage is not None:
+            if action.card == ui_card.card and action.declare_marriage:
                 next_action = action
                 break
 
@@ -269,7 +269,7 @@ class GUI:
         ui_card = self._player_cards[index]
         next_action = None
         for action in self.match_controller.get_valid_moves(self.match_state):
-            if action.card == ui_card.card and action.marriage is None:
+            if action.card == ui_card.card and not action.declare_marriage:
                 next_action = action
                 break
         self._apply_action(next_action)

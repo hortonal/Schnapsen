@@ -31,7 +31,7 @@ class BetterPlayer(Player):
         # Whether we play the king or queen should depend on if we think we'll win the hand or not.
         if selected_action is None:
             for action in legal_actions:
-                if action.marriage is not None:
+                if action.declare_marriage:
                     selected_action = action
                     break
 

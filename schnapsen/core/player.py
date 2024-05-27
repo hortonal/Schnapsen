@@ -77,3 +77,26 @@ class Player:
             str: Player name.
         """
         return self._print_str_name()
+
+    def __eq__(self, value: Player) -> bool:
+        """Check equivalence.
+
+        This is done naively via player name.
+
+        Args:
+            value (Player): Player to check against
+
+        Returns:
+            bool: True if players the same.
+        """
+        return self.name == value.name
+
+    def __hash__(self) -> int:
+        """Hash player object.
+
+        Like equivalence, the player name is the key info here.
+
+        Returns:
+            int: hashed value.
+        """
+        return self.name.__hash__()

@@ -8,9 +8,13 @@ from typing import List
 
 import numpy as np
 
+from schnapsen.ai.better_player import BetterPlayer
 from schnapsen.ai.random_player import RandomPlayer
 from schnapsen.core.action import Action
+from schnapsen.core.actions import ALL_GAME_ACTIONS
+from schnapsen.core.actions import get_action_index
 from schnapsen.core.match_controller import MatchController
+from schnapsen.core.match_helpers import play_automated_matches
 from schnapsen.core.player import Player
 from schnapsen.core.state import MatchState
 
@@ -21,7 +25,7 @@ class Node:
     match_controller: MatchController
     state: MatchState
     parent: Node = None
-    action_taken: Action = None
+    taken_action_id: int = None
     children: List[Node] = None
     expandable_moves: List[Action] = None
     visit_count: int = 0
@@ -30,17 +34,16 @@ class Node:
 
     def __post_init__(self) -> None:
         """Initialise node state."""
-        self.exandable_moves = self.match_controller.get_valid_moves(state=self.state)
+        self.expandable_moves = self.match_controller.get_valid_moves(state=self.state)
         self.children = []
-        self.expandable_moves = []
 
     def is_fully_expanded(self) -> bool:
-        """Check if node has been fully explored.
+        """Check if node has been fully expanded.
 
         Returns:
             bool: True if terminal state, otherwise False.
         """
-        return self.state.round_winner is not None
+        return len(self.expandable_moves) == 0 and len(self.children) > 0
 
     def select(self) -> Node:
         """Decide the next child node to explore.
@@ -70,12 +73,12 @@ class Node:
         Returns:
             float: The calculated ucb score.
         """
-        q_value = child.value_sum / child.visit_count
+        q_value = ((child.value_sum / child.visit_count) + 1) / 2
         # If the child node represents an opponent's move, the q_value is "opposite" of what it is for us
         # e.g. a perfect match position for us is q_value 1. An opponents q_value is 1, this is bad for us
         # We want to put the child in the worst possible state.
         # If the child node is the result of swapping a trump (for example) then the q_value does not need adjusting.
-        if child.match_controller.round_state.active_player != self.match_controller.round_state.active_player:
+        if child.state.active_player != self.state.active_player:
             q_value = 1 - q_value
         return q_value + self.c * math.sqrt(math.log(self.visit_count) / child.visit_count)
 
@@ -93,10 +96,9 @@ class Node:
         # Set up a child state. We setup the game state assuming
         child_state = self.state.copy()
         self.match_controller.update_state_with_action(child_state, action)
-        # This might require some thought!... Doesn't exist but should be simple to implement
-        # child_state = state.change_perspective(child_state)
-        child = Node(match_controller=self.match_controller,
-                     state=child_state, parent=self, action_taken=action)
+        # Note that we don't use the match controller to progress game states as we now want random exploration!
+        child = Node(match_controller=self.match_controller, state=child_state, parent=self,
+                     taken_action_id=get_action_index(action))
         self.children.append(child)
         return child
 
@@ -106,24 +108,29 @@ class Node:
         Returns:
             float: A value score for path.
         """
-        is_terminal = self.state.round_winner is not None
+        value, is_terminal = self.state.normalised_value_is_terminal()
         if is_terminal:
-            return self.state.player_states[self.state.round_winner].match_points
+            # TODO Double check this == vs !=
+            if self.state.round_winner == self.parent.state.active_player:
+                value *= -1
+            return value
 
         rollout_state = self.state.copy()
-        rollout_player = self.state.active_player
+        current_player = self.state.active_player
 
+        # Progress the game at random until it ends!
         while True:
             # Pick random move
-            action = choice(
-                self.match_controller.get_valid_moves(rollout_state))
-            self.match_controller.update_state_with_action(
-                rollout_state, action, rollout_player)
-            is_terminal = rollout_state.round_winner is not None
+            action = choice(self.match_controller.get_valid_moves(rollout_state))
+            # Update game state
+            self.match_controller.update_state_with_action(rollout_state, action)
+            # Stop if/when we have a winner
+            value, is_terminal = rollout_state.normalised_value_is_terminal()
             if is_terminal:
-                return rollout_state.player_states[rollout_state.round_winner].match_points
-
-            rollout_player = rollout_state.get_other_player(rollout_player)
+                # Adjust value if the "winner" is not the player at the start of the simulation.
+                if rollout_state.round_winner != current_player:
+                    value *= -1
+                return value
 
     def backpropagate(self, value: int) -> None:
         """Update parent node based on child visit.
@@ -133,8 +140,10 @@ class Node:
         """
         self.value_sum += value
         self.visit_count += 1
-        # TODO flip sign if parent is opponent. Not always true
+
         if self.parent is not None:
+            if self.parent.state.active_player != self.state.active_player:
+                value *= -1
             self.parent.backpropagate(value)
 
 
@@ -156,19 +165,22 @@ class MCTS:
         """
         root_node = Node(match_controller=MatchController(), state=state)
 
-        # Node Selection
+        # Traverse our node tree a number of times
         for _ in range(number_of_searches):
+
+            # Start each search from the root node.
             node = root_node
 
+            # If a current node is fully expanded, select a child (assumed not fully expanded)
             while node.is_fully_expanded():
                 node = node.select()
 
-            # self.game.get_value_and_terminated(self.state, self.action_taken)
-            is_terminal = node.state.round_winner is not None
-            value = node.state.player_states[node.state.round_winner].match_points
-            # Might need to negate this value to be from opponents perspective.
-
-            if not is_terminal:
+            value, is_terminal = node.state.normalised_value_is_terminal()
+            if is_terminal:
+                # Value is for winner. We compare winner to root node player for correct sign.
+                if node.state.round_winner == root_node.state.active_player:
+                    value *= -1
+            else:
                 # Expansion
                 node = node.expand()
                 # Simulation
@@ -178,20 +190,26 @@ class MCTS:
             node.backpropagate(value)
 
         # return visit_counts
-        action_probs = np.zeros(self.game.action_size)
+        # This will effectively become a policy now so need to consider all possible game moves even if invalid.
+        action_frequency = np.zeros(len(ALL_GAME_ACTIONS))
         for child in root_node.children:
-            action_probs[child.action_taken] = child.visit_count
+            action_frequency[child.taken_action_id] = child.visit_count
 
-        action_probs /= np.sum(action_probs)
-        return action_probs
+        # Return as a probability density of winning per action in ACTIONS list.
+        return action_frequency / np.sum(action_frequency)
 
 
 class MctsPlayer(Player):
     """Simple monty carlo player."""
 
-    def __init__(self) -> None:
-        """Initialise Player object."""
-        super().__init__(name="Monty", automated=True)
+    def __init__(self, number_of_searches_per_move: int) -> None:
+        """Initialise Player object.
+
+        Args:
+            number_of_searches_per_move (int): How many monte carlo searches to perform per move.
+        """
+        super().__init__(name="Monty")
+        self.number_of_searches = number_of_searches_per_move
         self.mcts = MCTS(match_controller=MatchController())
 
     def select_action(self, state: MatchState, legal_actions: List[Action]) -> Action:  # noqa:U100
@@ -204,14 +222,14 @@ class MctsPlayer(Player):
         Returns:
             Action: Selected action.
         """
-        mcts_probs = self.mcts.search(state=state, number_of_searches=10)
-        return np.argmax(mcts_probs)
+        mcts_probs = self.mcts.search(state=state, number_of_searches=self.number_of_searches)
+        return ALL_GAME_ACTIONS[np.argmax(mcts_probs)]
 
 
 if __name__ == "__main__":
     match_controller = MatchController()
-    state = match_controller.get_new_match_state(
-        player_1=RandomPlayer(name="Randy"),
-        player_2=MctsPlayer())
-    match_controller.reset_round_state(state)
-    match_controller.progress_automated_actions(state)
+    mcts_player = MctsPlayer(number_of_searches_per_move=25)
+    better_player = BetterPlayer(name="Betty")
+    random_player = RandomPlayer(name="Randy")
+
+    print(play_automated_matches(player_1=mcts_player, player_2=better_player, number_of_matches=100))

@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from schnapsen.core.action import Action
 from schnapsen.core.card import Card
+from schnapsen.core.card import Suit
 from schnapsen.core.card import Value
 from schnapsen.core.deck import Deck
 from schnapsen.core.hand import Hand
@@ -61,6 +62,7 @@ class MatchController:
         state.deck_closer = None
 
         state.round_winner = None
+        state.round_winner_match_points = 0
         state.marriages_info = {}
         self._deal(state)
         # if isinstance(state.player_with_1st_deal, MatchController):
@@ -98,10 +100,8 @@ class MatchController:
 
         marriages = current_hand.available_marriages()
         for marriage in marriages:
-            legal_actions.append(Action(card=marriage.queen,
-                                        marriage=marriage))
-            legal_actions.append(Action(card=marriage.king,
-                                        marriage=marriage))
+            legal_actions.append(Action(card=marriage.queen, declare_marriage=True))
+            legal_actions.append(Action(card=marriage.king, declare_marriage=True))
         for card in current_hand:
             legal_actions.append(Action(card=card))
         return legal_actions
@@ -148,18 +148,18 @@ class MatchController:
         is_leader = player is state.leading_player
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.log(logging.DEBUG, 'Action %s, card %s, marriage %s, close deck: %s, swap_trump: %s',
-                             player.name, str(action.card is not None), str(action.marriage is not None),
+                             player.name, str(action.card is not None), str(action.declare_marriage),
                              str(action.close_deck), str(action.swap_trump))
 
         play_card = None
-        if action.swap_trump is True:
+        if action.swap_trump:
             self._swap_trump(state)
 
-        if action.close_deck is True:
+        if action.close_deck:
             self._close_deck(state)
 
-        if action.marriage is not None:
-            self._declare_marriage(state, action.marriage)
+        if action.declare_marriage:
+            self._declare_marriage(state=state, suit=action.card.suit)
 
         if action.card is not None:
             play_card = state.player_states[player].hand.pop_card(action.card)
@@ -266,19 +266,22 @@ class MatchController:
         for player in state.players:
             player_state = state.player_states[player]
             other_players_state = state.player_states[state.get_other_player(player)]
+            match_points = 0
             if player_state.round_points >= state.round_point_limit:
                 state.round_winner = player
                 # Award default match points (adjusted when deck was closed)
                 if state.deck_closer is not None:
-                    player_state.match_points += player_state.match_points_on_offer
+                    match_points = player_state.match_points_on_offer
                 else:
                     # Award standard points
                     if other_players_state.round_points == 0:
-                        player_state.match_points += 3
+                        match_points = 3
                     elif other_players_state.round_points < state.round_point_limit / 2:
-                        player_state.match_points += 2
+                        match_points = 2
                     else:
-                        player_state.match_points += 1
+                        match_points = 1
+                player_state.match_points += match_points
+                state.round_winner_match_points = match_points
 
                 state.player_with_1st_deal = state.get_other_player(state.player_with_1st_deal)
 
@@ -289,35 +292,39 @@ class MatchController:
 
             if state.deck_closer is None:
                 state.round_winner = state.hand_winner
+                state.round_winner_match_points = 1
                 state.player_states[state.round_winner].match_points += 1
             else:
                 # We know closer doesn't have enough points! So award non-closer with the right points
                 non_closing_player = state.get_other_player(state.deck_closer)
                 non_closing_player_state = state.player_states[non_closing_player]
                 state.round_winner = non_closing_player
+                match_points = non_closing_player_state.match_points_on_offer
                 if state.player_states[state.deck_closer].round_points == 0:
-                    non_closing_player_state.match_points += 3
-                else:
-                    non_closing_player_state.match_points += non_closing_player_state.match_points_on_offer
+                    match_points = 3
 
-    def _declare_marriage(self, state: MatchState, marriage: Marriage) -> None:
+                non_closing_player_state.match_points += match_points
+                state.round_winner_match_points = match_points
+
+    def _declare_marriage(self, state: MatchState, suit: Suit) -> None:
         """Update state to declare a marriage.
 
         Args:
             state (MatchState): Current state.
-            marriage (Marriage): Marriage to declare.
+            suit (Suit): The suit of the marriage to declare.
 
         Raises:
             ValueError: If illegal action.
         """
         if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug('Marriage declared by %s %s %s', state.active_player.name, marriage.queen, marriage.king)
+            self._logger.debug('Marriage declared by %s for %s', state.active_player.name, suit)
         if state.active_player is not state.leading_player:
             raise ValueError('Invalid marriage - Only leading player can declare marriage')
 
+        marriage = Marriage(Card(suit=suit, value=Value.QUEEN), Card(suit=suit, value=Value.KING))
         marriage.set_points(state.trump_card.suit)
 
-        state.marriages_info[marriage.suit] = {
+        state.marriages_info[suit] = {
             "marriage": marriage,
             "player": state.active_player
         }

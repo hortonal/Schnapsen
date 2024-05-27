@@ -3,6 +3,7 @@ from itertools import combinations
 from typing import Optional
 
 from schnapsen.ai.better_player import BetterPlayer
+from schnapsen.ai.mcts.mcts import MctsPlayer
 from schnapsen.ai.neural_network.simple_linear.nn_linear_player import NNSimpleLinearPlayer
 from schnapsen.ai.random_player import RandomPlayer
 from schnapsen.core import match_helpers
@@ -22,6 +23,7 @@ def run_tournament(number_of_matches_per_battle: Optional[int] = 999) -> None:
     players = [
         BetterPlayer("Betty"),
         RandomPlayer("Randy"),
+        MctsPlayer(number_of_searches_per_move=30),
         NNSimpleLinearPlayer("NN_Simple")
     ]
 
@@ -47,4 +49,4 @@ def run_tournament(number_of_matches_per_battle: Optional[int] = 999) -> None:
 
 
 if __name__ == "__main__":
-    run_tournament()
+    run_tournament(number_of_matches_per_battle=100)

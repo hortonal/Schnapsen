@@ -43,6 +43,7 @@ class MatchState:
 
     deck_closer: Player = None
     round_winner: Player = None
+    round_winner_match_points: int = None    # Specifically holds the last match points awards
 
     # Game rules
     round_point_limit: int = 66
@@ -76,3 +77,18 @@ class MatchState:
             MatchState: New state copy.
         """
         return deepcopy(self)
+
+    def normalised_value_is_terminal(self) -> Tuple[float, bool]:
+        """Get a normalised state value and terminal state from active player's perspective.
+
+        This is explicitly for a round only.
+
+        Returns:
+            Tuple[float, bool]: The match value, True if terminal
+        """
+        is_terminal = self.round_winner is not None
+        if is_terminal:
+            value = self.round_winner_match_points / 3
+            return value, True
+        else:
+            return 0, False

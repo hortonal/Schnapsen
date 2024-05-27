@@ -17,6 +17,14 @@ class Results():
     player2_wins: int
     winner: Player
 
+    def __str__(self) -> str:
+        """String represenation of results.
+
+        Returns:
+            str: Compiled string.
+        """
+        return f"{self.player1} {self.player1_wins} : {self.player2} {self.player2_wins}"
+
 
 def play_automated_matches(player_1: Player, player_2: Player, number_of_matches: Optional[int] = 999) -> Results:
     """Play games automatically (assuming players are both automatable).
