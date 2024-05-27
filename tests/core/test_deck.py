@@ -1,3 +1,4 @@
+import random
 from unittest import TestCase
 
 from schnapsen.core.deck import Deck
@@ -5,9 +6,8 @@ from schnapsen.core.deck import Deck
 
 class TestDeck(TestCase):
     def test_shuffle(self):
-        deck = Deck()
-        deck.shuffle()
-        deck2 = Deck()
-        deck2.shuffle()
+        random.seed(0)
+        deck_1 = Deck()
+        deck_2 = Deck()
 
-        assert deck != deck2
+        assert deck_1 != deck_2

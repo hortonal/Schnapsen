@@ -16,22 +16,23 @@ def test_play_automated():
     # Play some games at random. 10 games seems to cover almost all game actions and finds glaring syntax bugs.
     random.seed(0)
 
-    match_controller = MatchController(player_a=RandomPlayer("Randy1"), player_b=RandomPlayer("Randy2"))
+    match_controller = MatchController()
+
     for _ in range(10):
-        match_controller.play_automated_match()
-    assert isinstance(match_controller.round_state.round_winner, Player)
+        state = match_controller.play_automated_match(player_1=RandomPlayer("Randy1"), player_2=RandomPlayer("Randy2"))
+        assert isinstance(state.match_winner, Player)
 
 
 def test_regression():
     """Play through a fixed game checking key abilities."""
     random.seed(0)
 
-    match_controller = MatchController(player_a=Player(name="player_a", automated=False),
-                                       player_b=Player(name="player_b", automated=False))
+    match_controller = MatchController()
+    state = match_controller.get_new_match_state(
+        player_1=Player(name="player_a", automated=False),
+        player_2=Player(name="player_b", automated=False))
 
-    match_controller.new_match()
-    assert match_controller.match_state.player_a_match_points == 0
-    assert match_controller.match_state.player_b_match_points == 0
+    assert len(state.players) == 2
 
     deck = Deck()
     deck.clear()
@@ -55,33 +56,39 @@ def test_regression():
     cards.reverse()  # Cards are popped off the end so we reverse this list to behave as intended.
     deck.extend(cards)
 
-    match_controller.new_round(deck)
-    player_1 = match_controller.round_state.active_player
-    player_2 = match_controller.get_other_player(player_1)
+    match_controller.reset_round_state(state=state, deck=deck)
+
+    player_1 = state.active_player
+    player_2 = state.get_other_player(player_1)
+    player_1_state = state.player_states[player_1]
+    player_2_state = state.player_states[player_2]
+    player_1_hand = player_1_state.hand
+    player_2_hand = player_2_state.hand
+
     # Test the deal
-    assert player_1.hand == [
+    assert player_1_hand == [
         Card(Suit.DIAMOND, Value.ACE), Card(Suit.SPADE, Value.KING), Card(Suit.SPADE, Value.QUEEN),
         Card(Suit.HEART, Value.ACE), Card(Suit.HEART, Value.TEN)]
-    assert player_2.hand == [
+    assert player_2_hand == [
         Card(Suit.CLUB, Value.TEN), Card(Suit.CLUB, Value.KING), Card(Suit.CLUB, Value.QUEEN),
         Card(Suit.DIAMOND, Value.TEN), Card(Suit.SPADE, Value.ACE)]
-    assert match_controller.round_state.trump_card == Card(Suit.SPADE, Value.TEN)
-    assert len(match_controller._deck) == 9
+    assert state.trump_card == Card(Suit.SPADE, Value.TEN)
+    assert len(state.deck) == 9
 
     # Now start performing actions
-    match_controller.do_next_action(Action(card=Card(Suit.DIAMOND, Value.ACE)))
-    assert Card(Suit.DIAMOND, Value.ACE) not in player_1.hand
-    match_controller.do_next_action(Action(card=Card(Suit.SPADE, Value.ACE)))
+    match_controller.update_state_with_action(state=state, action=Action(card=Card(Suit.DIAMOND, Value.ACE)))
+    assert Card(Suit.DIAMOND, Value.ACE) not in player_1_hand
+    match_controller.update_state_with_action(state=state, action=Action(card=Card(Suit.SPADE, Value.ACE)))
     # Trump beats non-trump
-    assert match_controller.round_state.hand_winner == player_2
+    assert state.hand_winner == player_2
     # Winner picks up first, so gets the queen of diamods
-    assert Card(Suit.DIAMOND, Value.QUEEN) in player_2.hand
-    assert Card(Suit.DIAMOND, Value.JACK) in player_1.hand
-    assert player_2.round_points == 22  # Two aces!
+    assert Card(Suit.DIAMOND, Value.QUEEN) in player_2_hand
+    assert Card(Suit.DIAMOND, Value.JACK) in player_1_hand
+    assert player_2_state.round_points == 22  # Two aces!
 
     # What happens if we try and lead the wrong player's action.
     with pytest.raises(ValueError, match="not in hand"):
-        match_controller.do_next_action(Action(card=Card(Suit.SPADE, Value.KING)))
+        match_controller.update_state_with_action(state=state, action=Action(card=Card(Suit.SPADE, Value.KING)))
 
     # TODO: Cards of same suit played
     # TODO: Cards of different suits played (no trump)

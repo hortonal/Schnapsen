@@ -8,105 +8,159 @@ from schnapsen.core.action import Action
 from schnapsen.core.card import Card
 from schnapsen.core.card import Value
 from schnapsen.core.deck import Deck
+from schnapsen.core.hand import Hand
 from schnapsen.core.marriage import Marriage
 from schnapsen.core.player import Player
-from schnapsen.core.state import PublicMatchState
-from schnapsen.core.state import PublicRoundState
+from schnapsen.core.state import MatchState
 
 
 class MatchController:
     """Core game controller object."""
 
-    def __init__(self, player_a: Player, player_b: Player,
-                 match_point_limit: int = 7, round_point_limit: int = 66) -> None:
-        """Create a GameController instance.
-
-        Parameters
-        ----------
-        player_a : Player
-            The first Player.
-        player_b : Player
-            The opponent.
-        match_point_limit : int, optional
-            The number of game points required to win a match, by default 7
-        round_point_limit : int, optional
-            The number of points required to win a game, by default 66
-        """
+    def __init__(self) -> None:
+        """Create match controller."""
         self._logger = logging.getLogger()
-        self._round_point_limit = round_point_limit
-        self._match_point_limit = match_point_limit
-        self._player_a = player_a
-        self._player_b = player_b
-        self._players = [player_a, player_b]
-        self._deck = None   # will be defined when game starts.
         self.action_callback = None  # Func set externally for event handling, e.g. in a GUI.
 
-    def new_match(self) -> None:
-        """Start a new match."""
-        self.match_state = PublicMatchState(
-            round_point_limit=self._round_point_limit,
-            match_point_limit=self._match_point_limit
-        )
-        for player in self._players:
-            player.match_points = 0
-            player.match_state = self.match_state
-            player.declare_win_callback = self.declare_game_win
-
-        self._define_first_deal()
-        self.match_state.match_winner = None
-        self.match_state.have_match_winner = False
-
-    def new_round(self, deck: Deck = None) -> None:
-        """Start a new game within match.
+    def get_new_match_state(self, player_1: Player, player_2: Player) -> MatchState:
+        """Create a new game state.
 
         Parameters
         ----------
-        deck : Deck, optional
-            Provide the game with a deck. This is mostly for testing, by default None
+        player_1 : Player
+            First player
+        player_2 : Player
+            Second player
+
+        Returns
+        -------
+        MatchState
+            State object
         """
-        self.round_state = PublicRoundState()
-        for player in self._players:
-            player.round_state = self.round_state
-            player.new_round()
-        self._marriages_info = {}
+        state = MatchState(players=(player_1, player_2), deck=Deck())
+        # Select player at random for first deal.
+        state.player_with_1st_deal = random.choice([player_1, player_2])
+        return state
 
+    def reset_round_state(self, state: MatchState, deck: Deck = None) -> None:
+        """Update/Reset state for a new round.
+
+        Parameters
+        ----------
+        state : MatchState
+            New match state.
+        deck : Deck, optional
+            Specify a deck to be used. Set only for testing, by default None
+        """
+        # Replenish the deck
         if deck is None:
-            self._deck = Deck()
-            self._deck.shuffle()
+            state.deck = Deck()
         else:
-            self._deck = deck
-        self._deal()
-        self.round_state.leading_player = self.match_state.player_with_1st_deal
-        self.round_state.following_player = self.get_other_player(self.round_state.leading_player)
-        self.round_state.active_player = self.round_state.leading_player
+            state.deck = deck
 
-    def play_automated_match(self) -> None:
-        """Progress match/game state automatically."""
-        self.new_match()
-        while not self.match_state.have_match_winner:
-            self.new_round()
-            while not self.round_state.have_round_winner:
-                self.progress_automated_actions()  # If AI vs. AI, whole game plays
+        # Reset hands/points
+        for player_state in state.player_states.values():
+            player_state.hand = Hand()
+            player_state.cards_won = []
+            player_state.round_points = 0
 
-    def progress_automated_actions(self) -> None:
-        """Progress automated actions until no more automated actions exist or the game finishes."""
-        active_player = self.round_state.active_player
-        while active_player.automated and not self.round_state.have_round_winner:
-            self._logger.log(logging.DEBUG, 'performing next AI action')
-            self.evaluate_active_player_actions()
-            if len(active_player.legal_actions) > 0:
-                self.do_next_action(active_player.select_action())
-            # Active player can be updated after each action!
-            active_player = self.round_state.active_player
+        # Reset round points related state
+        state.deck_closed = False
+        state.deck_closer = None
 
-    def evaluate_active_player_actions(self) -> None:
-        """Determine list of available actions for the active player."""
-        self.round_state.active_player.evaluate_legal_actions(self.round_state.leading_card)
+        state.round_winner = None
+        state.marriages_info = {}
+        self._deal(state)
+        # if isinstance(state.player_with_1st_deal, MatchController):
+        #     pass
+        # if isinstance(state.active_player, MatchController):
+        #     pass
+        state.leading_player = state.player_with_1st_deal
+        state.active_player = state.leading_player
 
-    def do_next_action(self, action: Action) -> None:
-        """Perform the action of the player."""
-        player = self.round_state.active_player
-        is_leader = player is self.round_state.leading_player
+    def get_valid_moves(self, state: MatchState) -> List[Action]:
+        """Return valid moves for active player.
+
+        Parameters
+        ----------
+        state : MatchState
+            Current match state.
+
+        Returns
+        -------
+        List[Action]
+            Set of legal/valid actions.
+        """
+        legal_actions = []
+        if state.leading_card is None:
+            legal_actions.extend(self._valid_leading_actions(state))
+        else:
+            legal_actions.extend(self._valid_follower_actions(state))
+        return legal_actions
+
+    def _valid_leading_actions(self, state: MatchState) -> List[Action]:
+        legal_actions = []
+        current_hand = state.player_states[state.active_player].hand
+
+        if current_hand.has_card(Card(state.trump_card.suit, Value.JACK)) and not state.deck_closed:
+            legal_actions.append(Action(swap_trump=True))
+
+        if not state.deck_closed:
+            legal_actions.append(Action(close_deck=True))
+
+        marriages = current_hand.available_marriages()
+        for marriage in marriages:
+            legal_actions.append(Action(card=marriage.queen,
+                                        marriage=marriage))
+            legal_actions.append(Action(card=marriage.king,
+                                        marriage=marriage))
+        for card in current_hand:
+            legal_actions.append(Action(card=card))
+        return legal_actions
+
+    def _valid_follower_actions(self, state: MatchState) -> List[Action]:
+        legal_actions = []
+        further_legal_actions_exist = True
+        leading_card = state.leading_card
+        current_hand = state.player_states[state.active_player].hand
+
+        # Handle special rules around a closed deck first.
+        if state.deck_closed:
+            # If deck closed, player must follow suit and win if possible
+            for card in current_hand.cards_of_same_suit(suit=leading_card.suit, greater_than=leading_card.value):
+                legal_actions.append(Action(card=card))
+                further_legal_actions_exist = False
+
+            # Player must follow suit if they can't win
+            if further_legal_actions_exist:
+                for card in current_hand.cards_of_same_suit(suit=leading_card.suit):
+                    legal_actions.append(Action(card=card))
+                    further_legal_actions_exist = False
+
+            # Player must trump if they can't follow suit
+            if further_legal_actions_exist:
+                for card in current_hand.cards_of_same_suit(suit=state.trump_card.suit):
+                    legal_actions.append(Action(card=card))
+                    further_legal_actions_exist = False
+
+        # Failing the above, player can play any card.
+        if further_legal_actions_exist:
+            [legal_actions.append(Action(card=card)) for card in current_hand]
+
+        return legal_actions
+
+    def update_state_with_action(self, state: MatchState, action: Action) -> None:
+        """Update state object with a given action.
+
+        Parameters
+        ----------
+        state : MatchState
+            Input match state.
+        action : Action
+            Action to be performed.
+        """
+        player = state.active_player
+        is_leader = player is state.leading_player
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.log(logging.DEBUG, 'Action %s, card %s, marriage %s, close deck: %s, swap_trump: %s',
                              player.name, str(action.card is not None), str(action.marriage is not None),
@@ -114,113 +168,154 @@ class MatchController:
 
         play_card = None
         if action.swap_trump is True:
-            self._swap_trump(player)
+            self._swap_trump(state)
 
         if action.close_deck is True:
-            self._close_deck(player)
+            self._close_deck(state)
 
         if action.marriage is not None:
-            self._declare_marriage(player, action.marriage)
+            self._declare_marriage(state, action.marriage)
 
         if action.card is not None:
-            play_card = player.hand.pop_card(action.card)
+            play_card = state.player_states[player].hand.pop_card(action.card)
             if is_leader:
-                self.round_state.leading_card = play_card
-                self.round_state.active_player = self.get_other_player(self.round_state.active_player)
+                state.leading_card = play_card
+                state.active_player = state.get_other_player(player)
             else:
-                self.round_state.following_card = play_card
+                state.following_card = play_card
 
         # Used for UI event handling
         if self.action_callback is not None:
             self.action_callback(action)
 
         # Finally handle end of hand
-        if not is_leader and not self.round_state.have_round_winner:
-            self._end_of_hand()
+        if not is_leader and state.round_winner is None:
+            self._end_of_hand(state)
 
-    def _end_of_hand(self) -> None:
-        self.round_state.hand_winner = self.round_state.leading_player
-        if self.round_state.leading_card.suit == self.round_state.following_card.suit:
-            if self.round_state.following_card.value > self.round_state.leading_card.value:
-                self.round_state.hand_winner = self.round_state.following_player
-        else:
-            if self.round_state.following_card.suit == self.round_state.trump_card.suit:
-                self.round_state.hand_winner = self.round_state.following_player
-
-        loser = self.get_other_player(self.round_state.hand_winner)
-
-        points = self.round_state.leading_card.value + self.round_state.following_card.value \
-            + self._award_marriage_points(self.round_state.hand_winner)
-
-        self._award_round_points(self.round_state.hand_winner, points,
-                                 [self.round_state.leading_card, self.round_state.following_card])
-
-        self._logger.debug(self.round_state.hand_winner.name + ' wins')
-
-        # Deal extra cards, winner first
-        if not self.round_state.deck_closed:
-            self._give_cards(self.round_state.hand_winner, 1)
-            self._give_cards(loser, 1)
-
-        # Set winner to leading player
-        self.round_state.leading_card = None
-        self.round_state.following_card = None
-        self.round_state.leading_player = self.round_state.hand_winner
-        self.round_state.active_player = self.round_state.leading_player
-        self.round_state.following_player = loser
-
-        if len(self._player_a.hand) == 0 and not self.round_state.have_round_winner:
-            self._logger.debug('win by default')
-            self.declare_game_win(self.round_state.hand_winner)
-
-    def declare_game_win(self, player: Player) -> None:
-        """Declare the game as over.
-
-        This is typically called by a player who thinks they've won.
+    @staticmethod
+    def play_automated_match(player_1: Player, player_2: Player) -> MatchState:
+        """Progress match/game state automatically.
 
         Parameters
         ----------
-        player : Player
-            The Player declaring victory.
-        """
-        self.round_state.have_round_winner = True
-        self.round_state.round_winner = player
-        self.round_state.round_loser = self.get_other_player(player)
-        self._award_match_points()
-        self._switch_deals_between_games()
-        self._check_and_handle_match_win()
-
-    def _check_and_handle_match_win(self) -> None:
-        if self.match_state.player_a_match_points >= self.match_state.match_point_limit:
-            self.match_state.match_winner = self._player_a
-            self.match_state.have_match_winner = True
-        if self.match_state.player_b_match_points >= self.match_state.match_point_limit:
-            self.match_state.match_winner = self._player_b
-            self.match_state.have_match_winner = True
-
-    def _award_marriage_points(self, player: Player) -> int:
-        """Award points for marriage as/if appropriate.
-
-        Parameters
-        ----------
-        player : Player
-            The Player in consideration.
+        player_1 : Player
+            First player.
+        player_2 : Player
+            Second player.
 
         Returns
         -------
-        int
-            The number of points for the Marriage.
+        MatchState : Match state including results.
         """
-        return_points = 0
-        for marriage_info in self._marriages_info.values():
+        controller = MatchController()
+        state = controller.get_new_match_state(player_1=player_1, player_2=player_2)
+        while state.match_winner is None:
+            controller.reset_round_state(state=state)
+            while state.round_winner is None:
+                if isinstance(state.active_player, MatchController):
+                    pass
+                controller.progress_automated_actions(state)
+        return state
+
+    def progress_automated_actions(self, state: MatchState) -> None:
+        """Progress automated actions until no more automated actions exist or the game finishes."""
+        while state.active_player.automated and state.round_winner is None:
+            self._logger.log(logging.DEBUG, 'performing next AI action')
+            legal_actions = self.get_valid_moves(state=state)
+            if len(legal_actions) > 0:
+                self.update_state_with_action(state, state.active_player.select_action(state, legal_actions))
+
+    def _end_of_hand(self, state: MatchState) -> None:
+        # Determine hand winner. Start by assuming the leader wins then handle cases where this isn't true
+        state.hand_winner = state.leading_player
+        following_player = state.get_other_player(state.leading_player)
+        if state.leading_card.suit == state.following_card.suit:
+            if state.following_card.value > state.leading_card.value:
+                state.hand_winner = following_player
+        else:
+            if state.following_card.suit == state.trump_card.suit:
+                state.hand_winner = following_player
+
+        loser = state.get_other_player(state.hand_winner)
+
+        # Award points. First figure out if marriage points need handling
+        marriage_points = 0
+        for marriage_info in state.marriages_info.values():
             marriage_player = marriage_info["player"]
             marriage = marriage_info["marriage"]
-            if not marriage.points_awarded and player is marriage_player:
+            if not marriage.points_awarded and state.hand_winner is marriage_player:
                 marriage.points_awarded = True
-                return_points += marriage.points
-        return return_points   # Can be 0!
+                marriage_points += marriage.points
 
-    def _declare_marriage(self, player: Player, marriage: Marriage) -> None:
+        points = state.leading_card.value + state.following_card.value + marriage_points
+
+        # Award points and track cards won by each player
+        winning_player_state = state.player_states[state.hand_winner]
+        losing_player_state = state.player_states[loser]
+        winning_player_state.round_points += points
+        winning_player_state.cards_won.extend((state.leading_card, state.following_card))
+
+        self._logger.debug(state.hand_winner.name + ' wins')
+
+        # Deal extra cards, winner first
+        if not state.deck_closed:
+            self._give_cards(state=state, hand=winning_player_state.hand, number_of_cards=1)
+            self._give_cards(state=state, hand=losing_player_state.hand, number_of_cards=1)
+
+        # Reset hand state
+        state.leading_card = None
+        state.following_card = None
+        state.leading_player = state.hand_winner
+        state.active_player = state.leading_player
+
+        self._handle_round_win_points_limit_met(state)
+        self._handle_round_win_points_limit_not_met(state)
+        # Handle match win
+        if state.round_winner:
+            for player in state.players:
+                if state.player_states[player].match_points >= state.match_point_limit:
+                    state.match_winner = player
+
+    def _handle_round_win_points_limit_met(self, state: MatchState) -> None:
+        # Check for standard round win conditions
+        for player in state.players:
+            player_state = state.player_states[player]
+            other_players_state = state.player_states[state.get_other_player(player)]
+            if player_state.round_points >= state.round_point_limit:
+                state.round_winner = player
+                # Award default match points (adjusted when deck was closed)
+                if state.deck_closer is not None:
+                    player_state.match_points += player_state.match_points_on_offer
+                else:
+                    # Award standard points
+                    if other_players_state.round_points == 0:
+                        player_state.match_points += 3
+                    elif other_players_state.round_points < state.round_point_limit / 2:
+                        player_state.match_points += 2
+                    else:
+                        player_state.match_points += 1
+
+                state.player_with_1st_deal = state.get_other_player(state.player_with_1st_deal)
+
+    def _handle_round_win_points_limit_not_met(self, state: MatchState) -> None:
+        # Handle case where all cards are played but round point limit has not been reached.
+        # Check any player's hand to see if it's empty.
+        if len(next(iter(state.player_states.values())).hand) == 0 and (state.round_winner is None):
+
+            if state.deck_closer is None:
+                state.round_winner = state.hand_winner
+                state.player_states[state.round_winner].match_points += 1
+            else:
+                # We know closer doesn't have enough points! So award non-closer with the right points
+                non_closing_player = state.get_other_player(state.deck_closer)
+                non_closing_player_state = state.player_states[non_closing_player]
+                state.round_winner = non_closing_player
+                if state.player_states[state.deck_closer].round_points == 0:
+                    non_closing_player_state.match_points += 3
+                else:
+                    non_closing_player_state.match_points += non_closing_player_state.match_points_on_offer
+
+    def _declare_marriage(self, state: MatchState, marriage: Marriage) -> None:
         """Handle a player declaring a marriage.
 
         Player must be leader and immediate play a card form the marriage.
@@ -229,8 +324,8 @@ class MatchController:
 
         Parameters
         ----------
-        player : Player
-            The Player declaring the Marriage.
+        state : MatchState
+            The match state to update.
         marriage : Marriage
             The Marriage being declared.
 
@@ -240,150 +335,93 @@ class MatchController:
             If marriage is invalid.
         """
         if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug('Marriage declared by %s %s %s', player.name, marriage.queen, marriage.king)
-        if player is not self.round_state.leading_player:
+            self._logger.debug('Marriage declared by %s %s %s', state.active_player.name, marriage.queen, marriage.king)
+        if state.active_player is not state.leading_player:
             raise ValueError('Invalid marriage - Only leading player can declare marriage')
 
-        marriage.set_points(self.round_state.trump_card.suit)
+        marriage.set_points(state.trump_card.suit)
 
-        self._marriages_info[marriage.suit] = {
+        state.marriages_info[marriage.suit] = {
             "marriage": marriage,
-            "player": player
+            "player": state.active_player
         }
 
         # Award player points immediately if possible
-        if player.round_points != 0:
-            self._award_round_points(player, marriage.points)
+        active_player_state = state.player_states[state.active_player]
+        if active_player_state.round_points != 0:
+            active_player_state.round_points += marriage.points
             marriage.points_awarded = True
 
-    # def _play_card(self, player: Player, card: Card) -> None:
-    #     for idx, card_in_hand in enumerate(player.hand):
-    #         if card_in_hand == card:
-    #             return player.hand.pop(idx)
-    #     raise ValueError('Card not in hand')
-
-    # Handle a player closing the deck
-    # Said player must be current leader
-    # calc points on offer
-    def _close_deck(self, player: Player) -> None:
-        if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug('Player closing deck %s', player)
-        if self.round_state.deck_closed_by_player:
-            raise ValueError("Deck already closed")
-
-        if player is not self.round_state.leading_player:
-            raise ValueError("non-leading player can't close deck")
-
-        self.round_state.deck_closed = True
-        self.round_state.deck_closed_by_player = True
-        self.round_state.deck_closer = player
-        self.round_state.deck_closer_points = self._calc_match_points_on_offer(player=player, closer=True)
-        self.round_state.deck_non_closer_points = self._calc_match_points_on_offer(player=player, closer=False)
-
-    def _swap_trump(self, player: Player) -> None:
-
-        if self.round_state.deck_closed:
-            raise ValueError('Player can not swap trump as deck is closed')
-
-        jack_of_trumps = Card(suit=self.round_state.trump_card.suit, value=Value.JACK)
-        if player.hand.has_card(jack_of_trumps):
-            player.hand.pop_card(jack_of_trumps)
-        else:
-            raise ValueError('Player can not swap trump as requisite card not in hand')
-
-        player.receive_card(self.round_state.trump_card)
-        self.round_state.trump_card = jack_of_trumps
-
-    def _award_round_points(self, winning_player: Player, points: int, cards: List[Card] = None) -> None:
-        if cards is None:
-            cards = []
-        for player in self._players:
-            player.notify_round_points_won(winning_player, points, cards)
-
-    def _award_match_points(self) -> None:
-        """Notify players of their points, and keep track of them in the game controller, too."""
-        if self.round_state.deck_closed_by_player:
-            if self.round_state.deck_closer == self.round_state.round_winner:
-                match_points = self.round_state.deck_closer_points
-            else:
-                match_points = self.round_state.deck_non_closer_points
-        else:
-            match_points = self._calc_match_points_on_offer(self.round_state.round_winner)
-
-        # Update our own records
-        if self.round_state.round_winner is self._player_a:
-            self.match_state.player_a_match_points += match_points
-        else:
-            self.match_state.player_b_match_points += match_points
-
-        # Notify Player objects
-        for iter_player in self._players:
-            iter_player.notify_match_points_won(self.round_state.round_winner, match_points)
-
-    def _notify_players_of_trump(self, card: Card) -> None:
-        for player in self._players:
-            player.notify_trump(card)
-
-    def _calc_match_points_on_offer(self, player: Player, closer: bool = True) -> None:
-        other_player = self.get_other_player(player)
-
-        # Default award for a single game
-        match_points = 1
-
-        # The non-closer gets at least 2 points if he wins
-        if not closer:
-            match_points = 2
-
-        # Any winner gets 3 points in the opposition has 0 trick points
-        if other_player.round_points == 0:
-            match_points = 3
-        elif other_player.round_points < 33:
-            match_points = 2
-
-        return match_points
-
-    def _switch_deals_between_games(self) -> None:
-        self.match_state.player_with_1st_deal = self.match_state.player_with_2nd_deal
-        self.match_state.player_with_2nd_deal = self.get_other_player(self.match_state.player_with_1st_deal)
-
-    def _deal(self) -> None:
-        player_a = self.match_state.player_with_1st_deal
-        player_b = self.match_state.player_with_2nd_deal
-        self._give_cards(player_a, 3)
-        self._give_cards(player_b, 3)
-        self.round_state.trump_card = self._deck.pop()
-        self._give_cards(player_a, 2)
-        self._give_cards(player_b, 2)
-
-        self._notify_players_of_trump(self.round_state.trump_card)
-
-    # Assign leader at random
-    # This could be prettier but it works..
-    def _define_first_deal(self) -> None:
-        random_player = random.choice(self._players)
-        self.match_state.player_with_1st_deal = random_player
-        self.match_state.player_with_2nd_deal = self.get_other_player(random_player)
-
-    def _give_cards(self, player: Player, number: int) -> None:
-        for _ in range(number):
-            # Giving out the trump card is a special case when the face down deck is finished
-            if len(self._deck) == 0 and number == 1:
-                self.round_state.deck_closed = True
-                player.receive_card(self.round_state.trump_card)
-            else:
-                player.receive_card(self._deck.pop())
-
-    def get_other_player(self, player: Player) -> Player:
-        """Returns the second Player instance.
+    def _close_deck(self, state: MatchState) -> None:
+        """Update state for close deck action.
 
         Parameters
         ----------
-        player : Player
-            The first Player instance.
+        state : MatchState
+            Current match state.state
 
-        Returns
-        -------
-        Player
-            The second Player instance.
+        Raises
+        ------
+        ValueError
+            If illegal action
         """
-        return self._player_b if player is self._player_a else self._player_a
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug('Player closing deck %s', state.active_player)
+
+        if state.deck_closed:
+            raise ValueError("Deck already closed")
+        if state.active_player is not state.leading_player:
+            raise ValueError("non-leading player can't close deck")
+
+        state.deck_closed = True
+        state.deck_closer = state.active_player
+
+        active_player_state = state.player_states[state.active_player]
+        opponent_state = state.player_states[state.get_other_player(state.active_player)]
+
+        # Default points available
+        active_player_state.match_points_on_offer = 1
+        # The non-closer gets at least 2 points if he wins
+        opponent_state.match_points_on_offer = 2
+
+        if opponent_state.round_points == 0:
+            active_player_state.match_points_on_offer = 3
+            opponent_state.match_points_on_offer = 3
+        elif opponent_state.round_points < 33:
+            active_player_state.match_points_on_offer = 2
+
+    def _swap_trump(self, state: MatchState) -> None:
+        current_hand = state.player_states[state.active_player].hand
+
+        if state.deck_closed:
+            raise ValueError('Trump cannot be swapped as deck is closed')
+
+        jack_of_trumps = Card(suit=state.trump_card.suit, value=Value.JACK)
+        if current_hand.has_card(jack_of_trumps):
+            current_hand.pop_card(jack_of_trumps)
+        else:
+            raise ValueError('Player can not swap trump as requisite card not in hand')
+
+        current_hand.append(state.trump_card)
+        state.trump_card = jack_of_trumps
+
+    def _deal(self, state: MatchState) -> None:
+        # Decide which hand is dealt to first
+        second_player = state.get_other_player(state.player_with_1st_deal)
+        first_deal_hand = state.player_states[state.player_with_1st_deal].hand
+        second_deal_hand = state.player_states[second_player].hand
+
+        self._give_cards(state, first_deal_hand, 3)
+        self._give_cards(state, second_deal_hand, 3)
+        state.trump_card = state.deck.pop()
+        self._give_cards(state, first_deal_hand, 2)
+        self._give_cards(state, second_deal_hand, 2)
+
+    def _give_cards(self, state: MatchState, hand: Hand, number_of_cards: int) -> None:
+        for _ in range(number_of_cards):
+            # Giving out the trump card is a special case when the face down deck is finished
+            if len(state.deck) == 0 and number_of_cards == 1:
+                state.deck_closed = True
+                hand.append(state.trump_card)
+            else:
+                hand.append(state.deck.pop())

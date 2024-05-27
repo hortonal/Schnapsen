@@ -1,10 +1,13 @@
 """Simple player nueral network player module."""
 import os
+from typing import List
 
 import torch
 
 from schnapsen.ai.neural_network.simple_linear.io_helpers import IOHelpers
+from schnapsen.core.action import Action
 from schnapsen.core.player import Player
+from schnapsen.core.state import MatchState
 
 
 class NNSimpleLinearPlayer(Player):
@@ -23,12 +26,12 @@ class NNSimpleLinearPlayer(Player):
         self._file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                   'trained_models', self.__class__.__name__ + '_model.bin')
 
-    def select_action(self) -> None:
+    def select_action(self, state: MatchState, legal_actions: List[Action]) -> None:
         """Implements requisite action selection method from parent object."""
-        inputs = IOHelpers.create_input_from_game_state(self)
+        inputs = IOHelpers.create_input_from_game_state(state)
         # no_grad disables tracking of gradients which speeds up model call.
         with torch.no_grad():
-            _, action = IOHelpers.policy(self.model(inputs), self)
+            _, action = IOHelpers.policy(self.model(inputs), state)
         return action
 
     def load_model(self) -> None:

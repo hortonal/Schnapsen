@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import logging
 import math
 import random
-from typing import List
+from typing import List, Tuple
 
 import torch
 from torch.nn.functional import smooth_l1_loss
@@ -16,8 +16,11 @@ from schnapsen.ai.neural_network.replay_memory import Transition
 from schnapsen.ai.neural_network.simple_linear.io_helpers import IOHelpers
 from schnapsen.ai.neural_network.simple_linear.nn_linear_module import LinearModule
 from schnapsen.core import match_helpers
+from schnapsen.core.action import Action
 from schnapsen.core.match_controller import MatchController
 from schnapsen.core.player import Player
+from schnapsen.core.state import MatchState
+from schnapsen.core.state import PlayerState
 
 GAMMA = 0.95
 REWARD_COST_OF_LIVING = -0.10
@@ -28,6 +31,7 @@ EPS_START = 0.95
 EPS_END = 0.05
 EPS_DECAY = 100000
 
+random.seed(0)
 
 @dataclass
 class TrainConfig:
@@ -63,8 +67,10 @@ class Trainer:
         opponents : List[Player]
             A set of opponent players. This can be more AI or simple bots.
         """
-        self.match_controller: MatchController = None
+        self.match_controller: MatchController = MatchController()
+        self.match_state: MatchState = None
         self.player: Player = player
+        self.player_state: PlayerState = None   # For convenience
         self.opponents = opponents       # Collection of AI opponents to train against
         # Override the automatic action behaviour when training
         self.player.automated = False
@@ -76,10 +82,9 @@ class Trainer:
         self._cumulative_loss = 0
 
         # Create a usable game state just figure out require vector sizes for network.
-        self.__create_game_vs_random_opponent()
-        self.match_controller.new_match()
-        self.match_controller.new_round()
-        mock_inputs = IOHelpers.create_input_from_game_state(self.player)
+        self.__create_match_vs_random_opponent()
+        self.match_controller.reset_round_state(self.match_state)
+        mock_inputs = IOHelpers.create_input_from_game_state(state=self.match_state)
 
         input_size = len(mock_inputs)
         output_size = len(IOHelpers.output_actions)
@@ -96,8 +101,10 @@ class Trainer:
         self.model = self.player.model
         self._update_reference_model()
 
-    def __create_game_vs_random_opponent(self):
-        self.match_controller = MatchController(self.player, random.choice(self.opponents))
+    def __create_match_vs_random_opponent(self):
+        self.match_state = self.match_controller.get_new_match_state(
+            player_1=self.player, player_2=random.choice(self.opponents))
+        self.player_state = self.match_state.player_states[self.player]
 
     def __player_reward(self, prior_round_points, prior_match_points, round_points, match_points):
         # TODO: Detail the logic here. This can/should almost certainly be tweaked!
@@ -108,7 +115,7 @@ class Trainer:
             (match_points - prior_match_points) +   # noqa: W504
             # Game points (but not as much as match points)
             (round_points - prior_round_points) / \
-            self.match_controller.match_state.round_point_limit,
+            self.match_state.round_point_limit,
             dtype=torch.float)
 
     def __optimize(self, batch_size):
@@ -149,14 +156,13 @@ class Trainer:
         self.optimizer_count += 1
 
     def _start_new_match(self) -> None:
-        self.__create_game_vs_random_opponent()
-        self.match_controller.new_match()
+        self.__create_match_vs_random_opponent()
         self._start_new_game()
 
     def _start_new_game(self) -> None:
-        self.match_controller.new_round()
+        self.match_controller.reset_round_state(self.match_state)
         # Increment state if action not on NN player
-        self.match_controller.progress_automated_actions()
+        self.match_controller.progress_automated_actions(self.match_state)
 
     def _update_reference_model(self) -> None:
         self.reference_model.load_state_dict(self.model.state_dict())
@@ -189,12 +195,14 @@ class Trainer:
                 # Reset game state and play a bunch of games for validation
                 self._start_new_match()
                 self.player.automated = True
-                match_helpers.play_automated_matches(self.match_controller, 100)
+                match_helpers.play_automated_matches(player_1=self.match_state.players[0],
+                                                     player_2=self.match_state.players[1],
+                                                     number_of_matches=100)
                 self.player.automated = False
 
                 self._start_new_match()
 
-    def select_action(self, state):
+    def select_action(self, state: MatchState) -> Tuple[int, Action]:
         """Select action with the neural network to select next move.
 
         To avoid local minima, introduce some random selections to our actor via the eps_threshold.
@@ -206,32 +214,33 @@ class Trainer:
         self.actions_selected += 1
 
         if sample > eps_threshold:
-            return IOHelpers.get_random_legal_action(self.match_controller.round_state, self.player)
+            action = random.choice(self.match_controller.get_valid_moves(self.match_state))
+            i = IOHelpers.get_index_for_action(action)
+            return torch.tensor([i], dtype=torch.long), action
         else:
             with torch.no_grad():
                 q_values = self.model(state)
-            return IOHelpers.policy(q_values, self.player)
+            return IOHelpers.policy(q_values, self.match_state)
 
     def single_training_loop(self, batch_size: int):
-
-        prior_round_points = self.player.round_points
-        prior_match_points = self.player.match_points
-        state = IOHelpers.create_input_from_game_state(self.player)
+        prior_round_points = self.player_state.round_points
+        prior_match_points = self.player_state.match_points
+        state = IOHelpers.create_input_from_game_state(self.match_state)
         action_id, action = self.select_action(state)
 
         # Apply action and perform any opponent actions. I.e. continue game until our turn to act
-        self.match_controller.do_next_action(action)
-        self.match_controller.progress_automated_actions()
+        self.match_controller.update_state_with_action(self.match_state, action)
+        self.match_controller.progress_automated_actions(self.match_state)
 
-        next_state = IOHelpers.create_input_from_game_state(self.player)
+        next_state = IOHelpers.create_input_from_game_state(self.match_state)
         reward = self.__player_reward(prior_round_points, prior_match_points,
-                                      self.player.round_points, self.player.match_points)
-        next_legal_actions, _ = IOHelpers.get_legal_actions(self.player)
+                                      self.player_state.round_points, self.player_state.match_points)
+        next_legal_actions, _ = IOHelpers.get_legal_actions(self.match_state)
         self.memory.push(state, action_id, next_state,
                          next_legal_actions.unsqueeze(0), reward)
         self.__optimize(batch_size)
         # Update game state as necessary
-        if self.match_controller.match_state.have_match_winner:
+        if self.match_state.match_winner:
             self._start_new_match()
-        if self.match_controller.round_state.have_round_winner:
+        if self.match_state.round_winner:
             self._start_new_game()

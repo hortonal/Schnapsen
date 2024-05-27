@@ -5,7 +5,6 @@ from schnapsen.ai.better_player import BetterPlayer
 from schnapsen.ai.neural_network.simple_linear.nn_linear_player import NNSimpleLinearPlayer
 from schnapsen.ai.random_player import RandomPlayer
 from schnapsen.core import match_helpers
-from schnapsen.core.match_controller import MatchController
 from schnapsen.logs import basic_logger
 
 
@@ -35,10 +34,11 @@ def run_tournament(number_of_matches_per_battle: int = 999) -> None:
     tournament_results = {player: 0 for player in players}
 
     # Now play all combinations of players
-    for (player1, player2) in combinations(players, 2):
-        game = MatchController(player1, player2)
+    for (player_1, player_2) in combinations(players, 2):
         results = match_helpers.play_automated_matches(
-            match_controller=game, number_of_matches=number_of_matches_per_battle)
+            player_1=player_1,
+            player_2=player_2,
+            number_of_matches=number_of_matches_per_battle)
         tournament_results[results.winner] = tournament_results[results.winner] + 1
 
     # And print out sorted results

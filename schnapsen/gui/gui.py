@@ -24,7 +24,7 @@ from schnapsen.gui.gui_card import GUICard
 class GUI:
     """Simple game user interface."""
 
-    def __init__(self, match_controller: MatchController, human_player: Player) -> None:
+    def __init__(self, human_player: Player, opponent: Player) -> None:
         """Create GUI object.
 
         Parameters
@@ -33,10 +33,13 @@ class GUI:
             The underlying game controller in use.
         human_player : Player
             The human player object interacting with the UI.
+        opponent : Player
+            The opponent, assumed a bot, to the human player.
         """
-        self.match_controller = match_controller
+        self.match_controller = MatchController()
+        self.match_state = None
         self.player = human_player
-        self.opponent = self.match_controller.get_other_player(self.player)
+        self.opponent = opponent
         self.window = Tk()
         self._player_cards = {}
         self._opponent_cards = {}
@@ -139,8 +142,7 @@ class GUI:
 
     def _update_screen(self) -> None:
         # When human action re-evaluate legal choices some UI can update accordingly
-        self.match_controller.evaluate_active_player_actions()
-        self._update_cards()  # Handle swamp trump and close deck buttons
+        self._update_cards()  # Handle swap trump and close deck buttons
         self._update_deck()
         self._update_labels()
 
@@ -157,11 +159,10 @@ class GUI:
 
     def _handle_match_controller_action(self, action: Action) -> None:
         self._update_actions_history(action=action)
-        self._leader_card.update_card(
-            self.match_controller.round_state.leading_card)
+        self._leader_card.update_card(self.match_state.leading_card)
         self._follower_card.update_card(
-            self.match_controller.round_state.following_card)
-        if self.match_controller.round_state.following_card is not None:
+            self.match_state.following_card)
+        if self.match_state.following_card is not None:
             self.window.update_idletasks()
             self.window.update()
             time.sleep(.5)  # This isn't very nice but works just fine
@@ -172,18 +173,19 @@ class GUI:
         self._follower_card.update_card(None)
 
     def _update_labels(self) -> None:
-        self.opponent
+        player_state = self.match_state.player_states[self.player]
+        opponent_state = self.match_state.player_states[self.opponent]
         self._player_info_label['text'] = self._points_string(
-            self.player.name, self.player.round_points, self.player.match_points)
+            self.player.name, player_state.round_points, player_state.match_points)
         self._opponent_info_label['text'] = self._points_string(
-            self.opponent.name, self.opponent.round_points, self.opponent.match_points)
-        if self.match_controller.round_state.trump_card is not None:
-            self._trump_suit_label['text'] = Suit_string_map[self.match_controller.round_state.trump_card.suit]
+            self.opponent.name, opponent_state.round_points, opponent_state.match_points)
+        if self.match_state.trump_card is not None:
+            self._trump_suit_label['text'] = Suit_string_map[self.match_state.trump_card.suit]
 
     def _update_deck(self) -> None:
         can_swamp_trump = False
         can_close_deck = False
-        for action in self.player.legal_actions:
+        for action in self.match_controller.get_valid_moves(self.match_state):
             if action.swap_trump:
                 can_swamp_trump = True
             if action.close_deck:
@@ -198,24 +200,25 @@ class GUI:
             self._close_deck_button['state'] = 'disable'
 
         # Handle close deck
-        if self.match_controller.round_state.deck_closed:
+        if self.match_state.deck_closed:
             self._trump_card.update_card(None)
             self._deck.update_card(None)
         else:
             self._trump_card.update_card(
-                self.match_controller.round_state.trump_card)
+                self.match_state.trump_card)
             self._deck.update_card(self._card_back)
 
     def _update_cards(self) -> None:
         # Update player cards
-        hand_size = len(self.player.hand)
+        hand = self.match_state.player_states[self.player].hand
+        hand_size = len(hand)
         for i in range(5):
             if i < hand_size:
-                card = self.player.hand[i]
+                card = hand[i]
                 self._player_cards[i].update_card(card)
                 self._player_cards[i].play_button['state'] = 'disable'
                 self._player_cards[i].play_marriage_button['state'] = 'disable'
-                for action in self.player.legal_actions:
+                for action in self.match_controller.get_valid_moves(self.match_state):
                     if action.card == card:
                         self._player_cards[i].play_button['state'] = 'normal'
                         if action.marriage is not None:
@@ -227,12 +230,13 @@ class GUI:
                 self._player_cards[i].play_marriage_button['state'] = 'disable'
 
         # Update opponents cards
-        hand_size = len(self.opponent.hand)
+        opponent_hand = self.match_state.player_states[self.opponent].hand
+        hand_size = len(opponent_hand)
         for i in range(5):
             card = None
             if i < hand_size:
                 if self._cheat_mode:
-                    card = self.opponent.hand[i]
+                    card = opponent_hand[i]
                 else:
                     card = self._card_back
             self._opponent_cards[i].update_card(card)
@@ -242,24 +246,24 @@ class GUI:
 
     def _play_match(self) -> None:
         self._deck.update_card(self._card_back)
-        self.match_controller.new_match()
+        self.match_state = self.match_controller.get_new_match_state(self.player, self.opponent)
         self._new_game()
 
     def _new_game(self) -> None:
         self._update_actions_history(None, reset=True)
         self._clear_played_cards()
-        self.match_controller.new_round()
+        self.match_controller.reset_round_state(self.match_state)
         self._handle_ai_actions()
         self._update_screen()
 
     def _handle_ai_actions(self) -> None:
-        self.match_controller.progress_automated_actions()
+        self.match_controller.progress_automated_actions(state=self.match_state)
 
     def _play_marriage(self, index: int) -> None:
         ui_card = self._player_cards[index]
 
         next_action = None
-        for action in self.player.legal_actions:
+        for action in self.match_controller.get_valid_moves(self.match_state):
             if action.card == ui_card.card and action.marriage is not None:
                 next_action = action
                 break
@@ -269,7 +273,7 @@ class GUI:
     def _play_card(self, index: int) -> None:
         ui_card = self._player_cards[index]
         next_action = None
-        for action in self.player.legal_actions:
+        for action in self.match_controller.get_valid_moves(self.match_state):
             if action.card == ui_card.card and action.marriage is None:
                 next_action = action
                 break
@@ -277,7 +281,7 @@ class GUI:
 
     def _close_deck(self) -> None:
         next_action = None
-        for action in self.player.legal_actions:
+        for action in self.match_controller.get_valid_moves(self.match_state):
             if action.close_deck:
                 next_action = action
                 break
@@ -286,7 +290,7 @@ class GUI:
 
     def _swap_trump(self) -> None:
         next_action = None
-        for action in self.player.legal_actions:
+        for action in self.match_controller.get_valid_moves(self.match_state):
             if action.swap_trump:
                 next_action = action
                 break
@@ -299,19 +303,20 @@ class GUI:
             messagebox.showwarning(
                 'Title', 'Action is not valid - try something else...')
         else:
-            self.match_controller.do_next_action(action)
+
+            self.match_controller.update_state_with_action(state=self.match_state, action=action)
             self._handle_ai_actions()
             self._update_screen()
 
-            if self.match_controller.round_state.have_round_winner:
+            if self.match_state.round_winner:
                 messagebox.showinfo(title='Round Winner!',
-                                    message=f'Winner is: {self.match_controller.round_state.round_winner.name}')
+                                    message=f'Winner is: {self.match_state.round_winner.name}')
                 self._new_game()
 
-            if self.match_controller.match_state.have_match_winner:
+            if self.match_state.match_winner:
                 messagebox.showinfo(
                     title='Match Winner!!!',
-                    message=(f'Match winner is: {self.match_controller.match_state.match_winner.name}.'
+                    message=(f'Match winner is: {self.match_state.match_winner.name}.'
                              ' Starting new game'))
                 self._play_match()
 

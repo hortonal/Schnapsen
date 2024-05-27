@@ -17,37 +17,39 @@ class Results():
     winner: Player
 
 
-def play_automated_matches(match_controller: MatchController, number_of_matches: int = 999) -> Results:
+def play_automated_matches(player_1: Player, player_2: Player, number_of_matches: int = 999) -> Results:
     """Play games automatically (assuming players are both automatable).
 
     Parameters
     ----------
-    match_controller : Game
-        The Game instance to use.
+    player_1: Player
+        First player.
+    player_2: Player
+        Second player.
     number_of_matches : int, optional
         The number of games to play through, by default 999 (odd to avoid ties)
     """
     logger = logging.getLogger()
 
-    player1 = match_controller._player_a
-    player2 = match_controller._player_b
-    player1_wins = 0
-    player2_wins = 0
+    match_controller = MatchController()
+
+    player_1_wins = 0
+    player_2_wins = 0
 
     for _ in range(number_of_matches):
-        match_controller.play_automated_match()
+        state = match_controller.play_automated_match(player_1=player_1, player_2=player_2)
 
-        if match_controller.match_state.match_winner is player1:
-            player1_wins += 1
+        if state.match_winner is player_1:
+            player_1_wins += 1
         else:
-            player2_wins += 1
+            player_2_wins += 1
 
         logger.debug(
             '%s vs %s, winner is %s. Running Total: %i:%i',
-            player1.name, player2.name, match_controller.match_state.match_winner.name, player1_wins, player2_wins)
+            player_1.name, player_2.name, state.match_winner.name, player_1_wins, player_2_wins)
 
-    logger.info('%s vs %s. %i:%i', player1.name, player2.name, player1_wins, player2_wins)
+    logger.info('%s vs %s. %i:%i', player_1.name, player_2.name, player_1_wins, player_2_wins)
 
-    return Results(player1=player1, player2=player2, number_of_matches_played=number_of_matches,
-                   player1_wins=player1_wins, player2_wins=player2_wins,
-                   winner=player1 if player1_wins > player2_wins else player2)
+    return Results(player1=player_1, player2=player_2, number_of_matches_played=number_of_matches,
+                   player1_wins=player_1_wins, player2_wins=player_2_wins,
+                   winner=player_1 if player_1_wins > player_2_wins else player_2)

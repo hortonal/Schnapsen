@@ -15,7 +15,5 @@ class Deck(list):
         for card_key in Value:
             for suit_key in Suit:
                 self.append(Card(suit_key, card_key))
-
-    def shuffle(self) -> None:
-        """Shuffle the deck randomly."""
+        # Shuffle deck ready for dealing.
         random.shuffle(self)
