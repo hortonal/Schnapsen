@@ -27,14 +27,9 @@ class GUI:
     def __init__(self, human_player: Player, opponent: Player) -> None:
         """Create GUI object.
 
-        Parameters
-        ----------
-        match_controller : MatchController
-            The underlying game controller in use.
-        human_player : Player
-            The human player object interacting with the UI.
-        opponent : Player
-            The opponent, assumed a bot, to the human player.
+        Args:
+            human_player (Player): The human player object interacting with the UI
+            opponent (Player): The opponent to the human player, assumed a bot.
         """
         self.match_controller = MatchController()
         self.match_state = None

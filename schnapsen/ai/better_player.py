@@ -10,7 +10,15 @@ class BetterPlayer(Player):
     """A player with rudimentary logic."""
 
     def select_action(self, state: MatchState, legal_actions: List[Action]) -> Action:
-        """Select a legal action."""
+        """Select legal action.
+
+        Args:
+            state (MatchState): Current game state.
+            legal_actions (List[Action]): Current legal actions.
+
+        Returns:
+            Action: A selected action.
+        """
         selected_action = None
 
         # Swap trump if we can - rarely is this a bad decision.
@@ -45,10 +53,11 @@ class BetterPlayer(Player):
         - Don't break a marriage (this shouldn't be a problem as marriages are played as a priority)
         - Leading trumps is questionable at best...
 
-        Returns
-        -------
-        Action
-            The selection action.
+        Args:
+            legal_actions (List[Action]): Current legal actions.
+
+        Returns:
+            Action: The selected action.
         """
         # Play highest card if leader
         selected_action = None

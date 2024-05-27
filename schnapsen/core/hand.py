@@ -1,5 +1,5 @@
 """Module for player's hand related objects."""
-from typing import List
+from typing import List, Optional
 
 from schnapsen.core.card import Card
 from schnapsen.core.card import Suit
@@ -13,10 +13,8 @@ class Hand(list):
     def available_marriages(self) -> List[Marriage]:
         """Determine available Marriages.
 
-        Returns
-        -------
-        List[Marriage]
-            Returns a list of available Marriage objects (or an empty list).
+        Returns:
+            List[Marriage]: Returns a list of available Marriage objects (or an empty list).
         """
         # Keep track of a running count of matches for each suit
         marriage_check_dict = {
@@ -46,15 +44,11 @@ class Hand(list):
     def has_card(self, card: Card) -> bool:
         """Simple check if card is in the current hand.
 
-        Parameters
-        ----------
-        card: Card
-            Card to check.
+        Args:
+            card (Card): Card to check.
 
-        Returns
-        -------
-        bool
-            True if card is present in hand; else False.
+        Returns:
+            bool: True if card is present in hand; else False.
         """
         return any(card == card_in_hand for card_in_hand in self)
 
@@ -63,20 +57,14 @@ class Hand(list):
 
         This assumes the card exists in the Hand.
 
-        Parameters
-        ----------
-        card: Card
-            Card to remove.
+        Args:
+            card (Card): Card to remove.
 
-        Returns
-        -------
-        Card
-            The removed Card.
+        Raises:
+            ValueError: If card is not present in hand.
 
-        Raises
-        ------
-        ValueError
-            If card is not present in hand.
+        Returns:
+            Card: The removed Card object.
         """
         selected_card = None
         for i, card_in_hand in enumerate(self):
@@ -87,20 +75,15 @@ class Hand(list):
             raise ValueError("Card not in hand")
         return selected_card
 
-    def cards_of_same_suit(self, suit: Suit, greater_than: Value = 0) -> List[Card]:
+    def cards_of_same_suit(self, suit: Suit, greater_than: Optional[Value] = 0) -> List[Card]:
         """Get cards of a matching suit.
 
-        Parameters
-        ----------
-        suit : Suit
-            Suit to check.
-        greater_than : Value, optional
-            An optional value threshold (exclusive), by default 0
+        Args:
+            suit (Suit): Suit to check.
+            greater_than (Optional[Value], optional): An optional value threshold (exclusive). Defaults to 0.
 
-        Returns
-        -------
-        List[Card]
-            The list of matching cards.
+        Returns:
+            List[Card]: The list of matching cards.
         """
         return_list = []
         for card in self:

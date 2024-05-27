@@ -1,32 +1,20 @@
 """Simple object to define a particular player action."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from schnapsen.core.card import Card
 from schnapsen.core.marriage import Marriage
 
 
+@dataclass
 class Action:
     """A wrapper for possible game actions."""
 
-    def __init__(self, card: Card = None, marriage: Marriage = None,
-                 swap_trump: bool = False, close_deck: bool = False) -> None:
-        """Create action instance.
-
-        Parameters
-        ----------
-        card : Card, optional
-            The Card involved in the Action if appropriate, by default None
-        marriage : Marriage, optional
-            The Marriage involved in the Action if appropriate, by default None
-        swap_trump : bool, optional
-            True if the action is swapping trumps, by default False
-        close_deck : bool, optional
-            True if the action is closing the deck, by default False
-        """
-        self.card = card
-        self.marriage = marriage
-        self.swap_trump = swap_trump
-        self.close_deck = close_deck
+    card: Card = None           # The Card involved in the Action if appropriate.
+    marriage: Marriage = None   # The Marriage involved in the Action if appropriate.
+    swap_trump: bool = False    # True if the action is swapping trumps
+    close_deck: bool = False    # True if the action is closing the deck
 
     def _nice_str(self) -> str:
         return_string = ''
@@ -45,15 +33,30 @@ class Action:
         return return_string
 
     def __repr__(self) -> str:
-        """String rep."""
+        """Get str rep.
+
+        Returns:
+            str: The string representation.
+        """
         return self._nice_str()
 
     def __str__(self) -> str:
-        """String rep."""
+        """Get str rep.
+
+        Returns:
+            str: The string representation.
+        """
         return self._nice_str()
 
     def __eq__(self, other: Action) -> bool:
-        """Overrides the default implementation."""
+        """Check for eqaulity.
+
+        Args:
+            other (Action): Item to check against.
+
+        Returns:
+            bool: True if items equivalent, otherwise False.
+        """
         if isinstance(other, Action):
             return self.card == other.card and self.marriage == other.marriage and \
                 self.swap_trump == other.swap_trump and self.close_deck == other.close_deck

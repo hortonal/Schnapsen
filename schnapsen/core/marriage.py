@@ -16,17 +16,12 @@ class Marriage:
     def __init__(self, queen: Card, king: Card) -> None:
         """Create Marriage instance.
 
-        Parameters
-        ----------
-        queen : Card
-            The Queen card of the Marriage.
-        king : Card
-            The King card of the Marriage.
+        Args:
+            queen (Card): The Queen card of the Marriage.
+            king (Card): The King card of the Marriage.
 
-        Raises
-        ------
-        ValueError
-            If the Marriage is invalid for improper cards or suits.
+        Raises:
+            ValueError: If the Marriage is invalid for improper cards or suits.
         """
         if queen.suit != king.suit:
             raise ValueError('Invalid Marriage - suits not equal')
@@ -46,15 +41,11 @@ class Marriage:
     def notify_card_played(self, card: Card) -> None:
         """Notify object that a card has been played.
 
-        Parameters
-        ----------
-        card : Card
-            The Card being played.
+        Args:
+            card (Card): The Card being played.
 
-        Raises
-        ------
-        ValueError
-            If card not in Marriage.
+        Raises:
+            ValueError: If card not in Marriage.
         """
         card_found = False
         for i, iter_card in enumerate(self.cards):
@@ -69,22 +60,22 @@ class Marriage:
             raise ValueError('Invalid card given to marriage')
 
     def card_in_marriage(self, card: Card) -> bool:
-        """Check if Card is in Marriage.
+        """Check if card is in Marriage.
 
-        Parameters
-        ----------
-        card : Card
-            The Card being played.
+        Args:
+            card (Card): Card to check.
 
-        Returns
-        -------
-        bool
-            True if card is in Marriage.
+        Returns:
+            bool: True if card is in marriage, False otherwise.
         """
         return card in self.cards
 
     def set_points(self, trump_suit: Suit) -> None:
-        """Determine and set the value of the Marriage."""
+        """Determine and set the value of the Marriage.
+
+        Args:
+            trump_suit (Suit): The trump suit to compare against.
+        """
         if self.suit == trump_suit:
             self.points = 40
         else:
@@ -93,15 +84,11 @@ class Marriage:
     def __eq__(self, other: Marriage) -> bool:
         """Test Marriage for equivalence.
 
-        Parameters
-        ----------
-        other : Marriage
-            Marriage to check against.
+        Args:
+            other (Marriage): Marriage to check against.
 
-        Returns
-        -------
-        bool
-            True if Marriage instance is identical.
+        Returns:
+            bool: True if Marriage instance is equivalent.
         """
         if isinstance(other, Marriage):
             return self.queen == other.queen and self.king == other.king

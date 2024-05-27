@@ -1,6 +1,7 @@
 """Module for Game helpers."""
 from dataclasses import dataclass
 import logging
+from typing import Optional
 
 from schnapsen.core.match_controller import MatchController
 from schnapsen.core.player import Player
@@ -17,17 +18,17 @@ class Results():
     winner: Player
 
 
-def play_automated_matches(player_1: Player, player_2: Player, number_of_matches: int = 999) -> Results:
+def play_automated_matches(player_1: Player, player_2: Player, number_of_matches: Optional[int] = 999) -> Results:
     """Play games automatically (assuming players are both automatable).
 
-    Parameters
-    ----------
-    player_1: Player
-        First player.
-    player_2: Player
-        Second player.
-    number_of_matches : int, optional
-        The number of games to play through, by default 999 (odd to avoid ties)
+    Args:
+        player_1 (Player): First player.
+        player_2 (Player): Second player.
+        number_of_matches (Optional[int], optional): The number of games to play through, by default 999 (odd to avoid
+            ties). Defaults to 999.
+
+    Returns:
+        Results: _description_
     """
     logger = logging.getLogger()
 

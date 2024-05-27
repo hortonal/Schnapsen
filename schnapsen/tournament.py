@@ -1,5 +1,6 @@
 """Main file (test for now)."""
 from itertools import combinations
+from typing import Optional
 
 from schnapsen.ai.better_player import BetterPlayer
 from schnapsen.ai.neural_network.simple_linear.nn_linear_player import NNSimpleLinearPlayer
@@ -8,13 +9,12 @@ from schnapsen.core import match_helpers
 from schnapsen.logs import basic_logger
 
 
-def run_tournament(number_of_matches_per_battle: int = 999) -> None:
+def run_tournament(number_of_matches_per_battle: Optional[int] = 999) -> None:
     """Pit all players against each other.
 
-    Parameters
-    ----------
-    number_of_matches_per_battle : int, optional
-        The number of matches that each pair of players will play to decide a winner, by default 999
+    Args:
+        number_of_matches_per_battle (Optional[int], optional): The number of matches that each pair of players will
+            play to decide a winner. Defaults to 999.
     """
     logger = basic_logger()
     logger.debug('Starting Aritificial Mortal Kombat')

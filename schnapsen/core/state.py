@@ -1,4 +1,7 @@
 """Module for match/round state classes."""
+from __future__ import annotations
+
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -58,14 +61,18 @@ class MatchState:
     def get_other_player(self, player: Player) -> Player:
         """Returns the second Player instance, assuming only 2 players.
 
-        Parameters
-        ----------
-        player : Player
-            The first Player instance.
+        Args:
+            player (Player): The first Player instance.
 
-        Returns
-        -------
-        Player
-            The second Player instance.
+        Returns:
+            Player: The second Player instance.
         """
         return self.players[1] if player is self.players[0] else self.players[0]
+
+    def copy(self) -> MatchState:
+        """Deep copy the current game state.
+
+        Returns:
+            MatchState: New state copy.
+        """
+        return deepcopy(self)

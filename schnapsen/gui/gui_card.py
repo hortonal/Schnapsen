@@ -7,7 +7,7 @@ from tkinter import LEFT
 from tkinter import TOP
 from tkinter import ttk
 from tkinter import Widget
-from typing import Callable
+from typing import Callable, Optional
 
 from PIL import Image
 from PIL import ImageTk
@@ -52,27 +52,21 @@ class GUICard:
         self.play_button = None
         self.play_marriage_button = None
 
-    def make_card_frame(self, parent_frame: Widget, pack_side: str = LEFT, play_command: Callable = None,
-                        play_marriage_command: Callable = None, enable_play_buttons: bool = False) -> Frame:
+    def make_card_frame(self, parent_frame: Widget, pack_side: Optional[str] = LEFT,
+                        play_command: Optional[Callable] = None, play_marriage_command: Optional[Callable] = None,
+                        enable_play_buttons: Optional[bool] = False) -> Frame:
         """Create frame for card object.
 
-        Parameters
-        ----------
-        parent_frame : Widget
-            Parent Frame.
-        pack_side : str, optional
-            Where to place the card within the parent frame, by default LEFT
-        play_command : Callable, optional
-            Action to perform upon click, by default None
-        play_marriage_command : Callable, optional
-            Action to perform upon marriage click, by default None
-        enable_play_buttons : bool, optional
-            Enable play buttons, by default False
+        Args:
+            parent_frame (Widget): Parent Frame.
+            pack_side (Optional[str], optional): Where to place the card within the parent frame. Defaults to LEFT.
+            play_command (Optional[Callable], optional): Action to perform upon click. Defaults to None.
+            play_marriage_command (Optional[Callable], optional): Action to perform upon marriage click. Defaults to
+                None.
+            enable_play_buttons (Optional[bool], optional): Enable play buttons. Defaults to False.
 
-        Returns
-        -------
-        Frame
-            The built Frame.
+        Returns:
+            Frame: _description_
         """
         self.parent_frame = Frame(parent_frame)
         self.parent_frame.pack(side=pack_side)
@@ -102,10 +96,8 @@ class GUICard:
     def update_card(self, card: Card) -> None:
         """Update with new card.
 
-        Parameters
-        ----------
-        card : Card
-            The new card. If None, it's treated as a blank/missing card.
+        Args:
+            card (Card): The new card. If None, it's treated as a blank/missing card.
         """
         self.card = card
 
@@ -123,17 +115,13 @@ class GUICard:
     def _image_path(self, suit: int | Suit, value: int | Value) -> str:
         """Return the local file image path.
 
-        Parameters
-        ----------
-        suit : int | Suits
-            The suit of the card. Some special values for the card back and blank values are accommodated here.
-        value : int | Values
-            The value of the card when appropriate.
+        Args:
+            suit (int | Suit): The suit of the card. Some special values for the card back and blank values are
+                accommodated here.
+            value (int | Value): The value of the card when appropriate.
 
-        Returns
-        -------
-        str
-            The absolute file path for the requested card.
+        Returns:
+            str: The absolute file path for the requested card.
         """
         this_root_path = os.path.dirname(os.path.abspath(__file__))
 

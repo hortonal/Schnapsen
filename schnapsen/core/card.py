@@ -49,14 +49,29 @@ class Card:
         return Value_string_map[self.value] + ' ' + Suit_string_map[self.suit]
 
     def __repr__(self) -> str:
-        """String rep."""
+        """String representation of object.
+
+        Returns:
+            str: Object as string.
+        """
         return self._print_str_name()
 
     def __str__(self) -> str:
-        """String rep."""
+        """String representation of object.
+
+        Returns:
+            str: Object as string.
+        """
         return self._print_str_name()
 
     def __eq__(self, other: Card) -> bool:
-        """Determine Card equality."""
+        """Determine Card equality.
+
+        Args:
+            other (Card): Card to check against.
+
+        Returns:
+            bool: True if equivalent.
+        """
         if isinstance(other, Card):
             return self.suit == other.suit and self.value == other.value

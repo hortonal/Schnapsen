@@ -39,7 +39,7 @@ ignore =["W503",    # Allow unused to be marked with _
 exclude = ["build",   # Duplicated "built" code
            "venv",    # 3rd party files
            "tmp*.py", # Local temporary scripts
-           "ai"       # Temporarily ignore existing AI package while we improve standards
+           "schnapsen/ai/neural_network"       # Temporarily ignore existing NN subpackage while we improve standards
            ] 
 per-file-ignores =["tests/*:D103, D102, D101, ANN201, D100",   # Relaxed docstrings and linting for tests.
                    "**/__init__.py: D104"]         # No need for doc strings in init files.
@@ -50,4 +50,4 @@ max-function-length = 300
 # mccabe
 max-complexity = 10
 # darglint
-docstring-style = "google"
+# docstring-style = "dave"

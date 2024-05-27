@@ -1,14 +1,15 @@
 """Parent player class.
 
-All player implementation should inherit from this and simply implement the
-_select_action method to notify the game what it's doing. All other player logic
-and game controller interaction handled in this class.
+All player implementation should inherit from this and simply implement the select_action method to notify the game
+of what action it would take from a given state.
 """
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import Callable, List, Optional, TYPE_CHECKING
 
-from schnapsen.core.action import Action
+if TYPE_CHECKING:   # Needed only for type hints and avoids circular dependencies.
+    from schnapsen.core.action import Action
+    from schnapsen.core.state import MatchState
 
 
 class Player:
@@ -17,17 +18,15 @@ class Player:
     This should generally be inherited from.
     """
 
-    def __init__(self, name: str, automated: bool = True, requires_model_load: bool = False) -> None:
-        """Initialise Player.
+    def __init__(self, name: str, automated: Optional[bool] = True,
+                 requires_model_load: Optional[bool] = False) -> None:
+        """Create a Player instance.
 
-        Parameters
-        ----------
-        name : str
-            Print friendly name.
-        automated : bool, optional
-            True if AI/Bot, False otherwise, by default True
-        requires_model_load : bool, optional
-            If True attempt to load model before using (e.g. for AI models), by default False
+        Args:
+            name (str): Print friendly name.
+            automated (Optional[bool], optional): True if AI/Bot, False otherwise. Defaults to True.
+            requires_model_load (Optional[bool], optional): If True attempt to load model before using (e.g. for
+                AI models). Defaults to False.
         """
         # Not critical but useful for logging/UI.
         self.name = name
@@ -40,27 +39,23 @@ class Player:
         # for a player to own his hand.
         self.declare_win_callback: Callable = None  # Assigned by game controller. This is used but isn't necessary
 
-    def select_action(self, legal_actions: List[Action]) -> Action:     # noqa:U100
+    def select_action(self, state: MatchState, legal_actions: List[Action]) -> Action:     # noqa:U100
         """Method for selecting Player Action.
 
         A child player class must implement this method and return an action. The player or some other controller
         should probably first ask for the legal actions to evaluated (but an illegal action is handled by the
         game controller).
 
-        Parameters
-        ----------
-        legal_actions : List[Action]
-            A set of legal actions provided by the match controller.
+        Args:
+            state (MatchState): The current match state. In practice this gives the player the opponents hand. For AI
+                implementations/bots, we choose to ignore this information.
+            legal_actions (List[Action]): A set of legal actions provided by the match controller.
 
-        Returns
-        -------
-        Action
-            The selected game Action.
+        Raises:
+            NotImplementedError: If a child object fails to implement this necessary method.
 
-        Raises
-        ------
-        NotImplementedError
-            If a child object fails to implement this necessary method.
+        Returns:    # noqa: DAR202
+            Action: The selected game Action.
         """
         raise NotImplementedError('Must be implemented by child')
 
@@ -68,21 +63,17 @@ class Player:
         return self.name
 
     def __repr__(self) -> str:
-        """String format.
+        """String represenation.
 
-        Returns
-        -------
-        str
-            Object as str.
+        Returns:
+            str: Player name.
         """
         return self._print_str_name()
 
     def __str__(self) -> str:
-        """String format.
+        """String represenation.
 
-        Returns
-        -------
-        str
-            Object as str.
+        Returns:
+            str: Player name.
         """
         return self._print_str_name()

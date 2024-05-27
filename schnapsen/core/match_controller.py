@@ -2,7 +2,7 @@
 
 import logging
 import random
-from typing import List
+from typing import List, Optional
 
 from schnapsen.core.action import Action
 from schnapsen.core.card import Card
@@ -25,32 +25,24 @@ class MatchController:
     def get_new_match_state(self, player_1: Player, player_2: Player) -> MatchState:
         """Create a new game state.
 
-        Parameters
-        ----------
-        player_1 : Player
-            First player
-        player_2 : Player
-            Second player
+        Args:
+            player_1 (Player): First player.
+            player_2 (Player): Second player.
 
-        Returns
-        -------
-        MatchState
-            State object
+        Returns:
+            MatchState: State object
         """
         state = MatchState(players=(player_1, player_2), deck=Deck())
         # Select player at random for first deal.
         state.player_with_1st_deal = random.choice([player_1, player_2])
         return state
 
-    def reset_round_state(self, state: MatchState, deck: Deck = None) -> None:
+    def reset_round_state(self, state: MatchState, deck: Optional[Deck] = None) -> None:
         """Update/Reset state for a new round.
 
-        Parameters
-        ----------
-        state : MatchState
-            New match state.
-        deck : Deck, optional
-            Specify a deck to be used. Set only for testing, by default None
+        Args:
+            state (MatchState): State to update
+            deck (Optional[Deck], optional): Specify a deck to be used. Set only for testing. Defaults to None.
         """
         # Replenish the deck
         if deck is None:
@@ -81,15 +73,11 @@ class MatchController:
     def get_valid_moves(self, state: MatchState) -> List[Action]:
         """Return valid moves for active player.
 
-        Parameters
-        ----------
-        state : MatchState
-            Current match state.
+        Args:
+            state (MatchState): Current match state.
 
-        Returns
-        -------
-        List[Action]
-            Set of legal/valid actions.
+        Returns:
+            List[Action]: Set of legal/valid actions.
         """
         legal_actions = []
         if state.leading_card is None:
@@ -152,12 +140,9 @@ class MatchController:
     def update_state_with_action(self, state: MatchState, action: Action) -> None:
         """Update state object with a given action.
 
-        Parameters
-        ----------
-        state : MatchState
-            Input match state.
-        action : Action
-            Action to be performed.
+        Args:
+            state (MatchState): State to act upon.
+            action (Action): Action to perform
         """
         player = state.active_player
         is_leader = player is state.leading_player
@@ -196,16 +181,12 @@ class MatchController:
     def play_automated_match(player_1: Player, player_2: Player) -> MatchState:
         """Progress match/game state automatically.
 
-        Parameters
-        ----------
-        player_1 : Player
-            First player.
-        player_2 : Player
-            Second player.
+        Args:
+            player_1 (Player): First player.
+            player_2 (Player): Second player.
 
-        Returns
-        -------
-        MatchState : Match state including results.
+        Returns:
+            MatchState: Match state including results.
         """
         controller = MatchController()
         state = controller.get_new_match_state(player_1=player_1, player_2=player_2)
@@ -218,7 +199,11 @@ class MatchController:
         return state
 
     def progress_automated_actions(self, state: MatchState) -> None:
-        """Progress automated actions until no more automated actions exist or the game finishes."""
+        """Progress automated actions until no more automated actions exist or the game finishes.
+
+        Args:
+            state (MatchState): State to update.
+        """
         while state.active_player.automated and state.round_winner is None:
             self._logger.log(logging.DEBUG, 'performing next AI action')
             legal_actions = self.get_valid_moves(state=state)
@@ -316,23 +301,14 @@ class MatchController:
                     non_closing_player_state.match_points += non_closing_player_state.match_points_on_offer
 
     def _declare_marriage(self, state: MatchState, marriage: Marriage) -> None:
-        """Handle a player declaring a marriage.
+        """Update state to declare a marriage.
 
-        Player must be leader and immediate play a card form the marriage.
-        Points for marriage only registered once any normal trick is won.
-        If player declares 66 at this point, the game terminates immediately
+        Args:
+            state (MatchState): Current state.
+            marriage (Marriage): Marriage to declare.
 
-        Parameters
-        ----------
-        state : MatchState
-            The match state to update.
-        marriage : Marriage
-            The Marriage being declared.
-
-        Raises
-        ------
-        ValueError
-            If marriage is invalid.
+        Raises:
+            ValueError: If illegal action.
         """
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug('Marriage declared by %s %s %s', state.active_player.name, marriage.queen, marriage.king)
@@ -353,17 +329,13 @@ class MatchController:
             marriage.points_awarded = True
 
     def _close_deck(self, state: MatchState) -> None:
-        """Update state for close deck action.
+        """Updates state to close the deck.
 
-        Parameters
-        ----------
-        state : MatchState
-            Current match state.state
+        Args:
+            state (MatchState): The current match state.
 
-        Raises
-        ------
-        ValueError
-            If illegal action
+        Raises:
+            ValueError: If action is illegal.
         """
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug('Player closing deck %s', state.active_player)
