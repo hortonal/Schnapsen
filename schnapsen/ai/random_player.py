@@ -1,6 +1,6 @@
 """Modules for a simple player implementation."""
-from typing import List
 import random
+from typing import List
 
 from schnapsen.core.action import Action
 from schnapsen.core.player import Player

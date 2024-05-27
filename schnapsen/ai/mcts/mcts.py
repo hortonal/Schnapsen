@@ -35,16 +35,19 @@ class Node:
         self.expandable_moves = []
 
     def is_fully_expanded(self) -> bool:
-        """Check if Node has been completely explored.
+        """Check if node has been fully explored.
 
-        Returns
-        -------
-        _type_
-            _description_
+        Returns:
+            bool: True if terminal state, otherwise False.
         """
-        return self.match_controller.round_state.have_round_winner
+        return self.state.round_winner is not None
 
     def select(self) -> Node:
+        """Decide the next child node to explore.
+
+        Returns:
+            Node: Selected node.
+        """
         best_child = None
         best_ucb = -np.inf
         for child in self.children:
@@ -61,15 +64,11 @@ class Node:
         The purpose of this is to help us traverse our node tree by best outcomes first but with a bias towards
         unexplored paths.
 
-        Parameters
-        ----------
-        child : Node
-            The node to calculate UCB score for
+        Args:
+            child (Node): The node to calculate UCB score for.
 
-        Returns
-        -------
-        float
-            The calculated ucb score.
+        Returns:
+            float: The calculated ucb score.
         """
         q_value = child.value_sum / child.visit_count
         # If the child node represents an opponent's move, the q_value is "opposite" of what it is for us
@@ -81,6 +80,11 @@ class Node:
         return q_value + self.c * math.sqrt(math.log(self.visit_count) / child.visit_count)
 
     def expand(self) -> Node:
+        """Expand node at random, updating children state and returning new expansion.
+
+        Returns:
+            Node: Newly added child.
+        """
         # Sample a child state at random
         action_ix = choice(range(len(self.expandable_moves)))
         # Remove and select random action possible moves
@@ -97,6 +101,11 @@ class Node:
         return child
 
     def simulate(self) -> float:
+        """Simulate value of node path.
+
+        Returns:
+            float: A value score for path.
+        """
         is_terminal = self.state.round_winner is not None
         if is_terminal:
             return self.state.player_states[self.state.round_winner].match_points
@@ -117,6 +126,11 @@ class Node:
             rollout_player = rollout_state.get_other_player(rollout_player)
 
     def backpropagate(self, value: int) -> None:
+        """Update parent node based on child visit.
+
+        Args:
+            value (int): Node value to back-propagate.
+        """
         self.value_sum += value
         self.visit_count += 1
         # TODO flip sign if parent is opponent. Not always true
@@ -130,9 +144,17 @@ class MCTS:
 
     match_controller: MatchController
 
-    def search(self, state: MatchState, number_of_searches: int):
+    def search(self, state: MatchState, number_of_searches: int) -> List[float]:
+        """Explore problem space with Monte Carlo Tree Search.
 
-        root_node = Node(match_controller=MatchController, state=state)
+        Args:
+            state (MatchState): Current match state.
+            number_of_searches (int): How many searches to perform.
+
+        Returns:
+            List[float]: A set of win probabilities for each action.
+        """
+        root_node = Node(match_controller=MatchController(), state=state)
 
         # Node Selection
         for _ in range(number_of_searches):
@@ -172,10 +194,18 @@ class MctsPlayer(Player):
         super().__init__(name="Monty", automated=True)
         self.mcts = MCTS(match_controller=MatchController())
 
-    def select_action(self, state: MatchState, legal_actions: List[Action]) -> Action:
+    def select_action(self, state: MatchState, legal_actions: List[Action]) -> Action:  # noqa:U100
+        """Select a player action using the MCTS search.
+
+        Args:
+            state (MatchState): Current match state.
+            legal_actions (List[Action]): Current legal actions.
+
+        Returns:
+            Action: Selected action.
+        """
         mcts_probs = self.mcts.search(state=state, number_of_searches=10)
-        action = np.argmax(mcts_probs)
-        return action
+        return np.argmax(mcts_probs)
 
 
 if __name__ == "__main__":
@@ -185,4 +215,3 @@ if __name__ == "__main__":
         player_2=MctsPlayer())
     match_controller.reset_round_state(state)
     match_controller.progress_automated_actions(state)
-
