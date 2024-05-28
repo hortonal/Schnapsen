@@ -17,7 +17,7 @@ def main() -> None:
     player_2 = BetterPlayer(name="Betty")    # Only the last player is actually used. A bit of a linting hack..
     player_2 = RandomPlayer(name="Randy")
     player_2 = NNSimpleLinearPlayer("Simple Neural Net")
-    player_2 = MctsPlayer(number_of_searches_per_move=25)
+    player_2 = MctsPlayer(number_of_searches_per_move=80)
 
     if player_2.requires_model_load:
         player_2.load_model()

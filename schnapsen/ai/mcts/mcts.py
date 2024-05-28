@@ -9,7 +9,6 @@ from typing import List
 import numpy as np
 
 from schnapsen.ai.better_player import BetterPlayer
-from schnapsen.ai.random_player import RandomPlayer
 from schnapsen.core.action import Action
 from schnapsen.core.actions import ALL_GAME_ACTIONS
 from schnapsen.core.actions import get_action_index
@@ -25,7 +24,7 @@ class Node:
     match_controller: MatchController
     state: MatchState
     parent: Node = None
-    taken_action_id: int = None
+    action_id: int = None
     children: List[Node] = None
     expandable_moves: List[Action] = None
     visit_count: int = 0
@@ -97,8 +96,9 @@ class Node:
         child_state = self.state.copy()
         self.match_controller.update_state_with_action(child_state, action)
         # Note that we don't use the match controller to progress game states as we now want random exploration!
-        child = Node(match_controller=self.match_controller, state=child_state, parent=self,
-                     taken_action_id=get_action_index(action))
+        child = Node(match_controller=self.match_controller,
+                     state=child_state, parent=self,
+                     action_id=get_action_index(action))
         self.children.append(child)
         return child
 
@@ -108,13 +108,6 @@ class Node:
         Returns:
             float: A value score for path.
         """
-        value, is_terminal = self.state.normalised_value_is_terminal()
-        if is_terminal:
-            # TODO Double check this == vs !=
-            if self.state.round_winner == self.parent.state.active_player:
-                value *= -1
-            return value
-
         rollout_state = self.state.copy()
         current_player = self.state.active_player
 
@@ -156,12 +149,16 @@ class MCTS:
     def search(self, state: MatchState, number_of_searches: int) -> List[float]:
         """Explore problem space with Monte Carlo Tree Search.
 
+        TODO - consider what happens when the number of searches exhausts the play space. At present I believe
+        nodes are just revisited reinforcing the strongest (?) choice.
+
         Args:
             state (MatchState): Current match state.
             number_of_searches (int): How many searches to perform.
 
         Returns:
-            List[float]: A set of win probabilities for each action.
+            List[float]: A set of win probabilities for each action. This is effectively a policy function that returns
+                win probabilities for each action under ALL_GAME_ACTIONS.
         """
         root_node = Node(match_controller=MatchController(), state=state)
 
@@ -173,18 +170,28 @@ class MCTS:
 
             # If a current node is fully expanded, select a child (assumed not fully expanded)
             while node.is_fully_expanded():
+                # We select a child node from anywhere in our explored hierarchy.
                 node = node.select()
 
+            # Newly seleced node might be terminal
             value, is_terminal = node.state.normalised_value_is_terminal()
             if is_terminal:
-                # Value is for winner. We compare winner to root node player for correct sign.
-                if node.state.round_winner == root_node.state.active_player:
+                # Value is for winner. We compare winner to current node active player.
+                # Active player is somewhat arbitrary in a terminal state but it doesn't matter as long we treat
+                # the active player as the node owner and back propagate consistently!
+                if node.state.round_winner != node.state.active_player:
                     value *= -1
             else:
                 # Expansion
                 node = node.expand()
-                # Simulation
-                value = node.simulate()
+                # Newly expanded node might be terminal
+                value, is_terminal = node.state.normalised_value_is_terminal()
+                if is_terminal:
+                    if node.state.round_winner != node.state.active_player:
+                        value *= -1
+                else:
+                    # Simulation
+                    value = node.simulate()
 
             # Backpropagation
             node.backpropagate(value)
@@ -193,7 +200,7 @@ class MCTS:
         # This will effectively become a policy now so need to consider all possible game moves even if invalid.
         action_frequency = np.zeros(len(ALL_GAME_ACTIONS))
         for child in root_node.children:
-            action_frequency[child.taken_action_id] = child.visit_count
+            action_frequency[child.action_id] = child.visit_count
 
         # Return as a probability density of winning per action in ACTIONS list.
         return action_frequency / np.sum(action_frequency)
@@ -227,9 +234,9 @@ class MctsPlayer(Player):
 
 
 if __name__ == "__main__":
-    match_controller = MatchController()
-    mcts_player = MctsPlayer(number_of_searches_per_move=25)
-    better_player = BetterPlayer(name="Betty")
-    random_player = RandomPlayer(name="Randy")
-
-    print(play_automated_matches(player_1=mcts_player, player_2=better_player, number_of_matches=100))
+    # A small test script to see how the number of searches impacts efficacy.
+    for i in range(11):
+        nb_searches = 2**i
+        mcts_player = MctsPlayer(number_of_searches_per_move=nb_searches)
+        better_player = BetterPlayer(name="Betty")
+        print(nb_searches, play_automated_matches(player_1=mcts_player, player_2=better_player, number_of_matches=100))
