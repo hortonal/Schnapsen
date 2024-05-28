@@ -18,6 +18,7 @@
     "cSpell.dictionaries": ["en-gb"],
     "cSpell.diagnosticLevel": "Hint",
     "cSpell.words": [
+        "mcts",
         "Schnapsen"
     ],
     "workbench.colorCustomizations": {     

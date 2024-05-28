@@ -17,7 +17,6 @@ class TestMarriage(TestCase):
 
         marriage.notify_card_played(queen_card)
         assert marriage.cards == [king_card]
-        assert not marriage.declared_but_not_played
 
     def test_play_king(self):
         queen_card = Card(0, 3)
@@ -26,7 +25,6 @@ class TestMarriage(TestCase):
 
         marriage.notify_card_played(king_card)
         assert marriage.cards == [queen_card]
-        assert not marriage.declared_but_not_played
 
     def test_exception_on_unexpected_card(self):
         queen_card = Card(0, 3)

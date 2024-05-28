@@ -17,6 +17,7 @@ from schnapsen.ai.neural_network.simple_linear.io_helpers import IOHelpers
 from schnapsen.ai.neural_network.simple_linear.nn_linear_module import LinearModule
 from schnapsen.core import match_helpers
 from schnapsen.core.action import Action
+from schnapsen.core.actions import ALL_GAME_ACTIONS, get_action_index
 from schnapsen.core.match_controller import MatchController
 from schnapsen.core.player import Player
 from schnapsen.core.state import MatchState
@@ -87,7 +88,7 @@ class Trainer:
         mock_inputs = IOHelpers.create_input_from_game_state(state=self.match_state)
 
         input_size = len(mock_inputs)
-        output_size = len(IOHelpers.output_actions)
+        output_size = len(ALL_GAME_ACTIONS)
 
         # Define simple NN layers
         self.model = LinearModule(input_size, HIDDEN_LAYER_SIZE, output_size)
@@ -215,7 +216,7 @@ class Trainer:
 
         if sample > eps_threshold:
             action = random.choice(self.match_controller.get_valid_moves(self.match_state))
-            i = IOHelpers.get_index_for_action(action)
+            i = get_action_index(action=action)
             return torch.tensor([i], dtype=torch.long), action
         else:
             with torch.no_grad():

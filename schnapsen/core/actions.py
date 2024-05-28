@@ -4,7 +4,6 @@ from schnapsen.core.card import Card
 from schnapsen.core.card import Suit
 from schnapsen.core.card import Value
 
-# I want to get this index
 ALL_GAME_ACTIONS = {
     0: Action(card=Card(Suit.DIAMOND, Value.JACK)),
     1: Action(card=Card(Suit.DIAMOND, Value.QUEEN)),

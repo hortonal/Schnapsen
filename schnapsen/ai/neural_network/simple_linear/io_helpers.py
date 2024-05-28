@@ -1,11 +1,10 @@
 """Handle conversion of game state to AI ready objects."""
-import random
 from typing import Dict
 
 import torch
 
 from schnapsen.ai.neural_network.card_input import CardInput
-from schnapsen.core.action import Action
+from schnapsen.core.actions import ALL_GAME_ACTIONS
 from schnapsen.core.card import Card
 from schnapsen.core.card import Suit
 from schnapsen.core.card import Value
@@ -31,41 +30,6 @@ class IOHelpers:
     s_marriage = Marriage(Card(Suit.SPADE, Value.QUEEN), Card(Suit.SPADE, Value.KING))
     h_marriage = Marriage(Card(Suit.HEART, Value.QUEEN), Card(Suit.HEART, Value.KING))
     c_marriage = Marriage(Card(Suit.CLUB, Value.QUEEN), Card(Suit.CLUB, Value.KING))
-
-    output_actions = {
-        0: Action(card=Card(Suit.DIAMOND, Value.JACK)),
-        1: Action(card=Card(Suit.DIAMOND, Value.QUEEN)),
-        2: Action(card=Card(Suit.DIAMOND, Value.KING)),
-        3: Action(card=Card(Suit.DIAMOND, Value.TEN)),
-        4: Action(card=Card(Suit.DIAMOND, Value.ACE)),
-        5: Action(card=Card(Suit.SPADE, Value.JACK)),
-        6: Action(card=Card(Suit.SPADE, Value.QUEEN)),
-        7: Action(card=Card(Suit.SPADE, Value.KING)),
-        8: Action(card=Card(Suit.SPADE, Value.TEN)),
-        9: Action(card=Card(Suit.SPADE, Value.ACE)),
-        10: Action(card=Card(Suit.HEART, Value.JACK)),
-        11: Action(card=Card(Suit.HEART, Value.QUEEN)),
-        12: Action(card=Card(Suit.HEART, Value.KING)),
-        13: Action(card=Card(Suit.HEART, Value.TEN)),
-        14: Action(card=Card(Suit.HEART, Value.ACE)),
-        15: Action(card=Card(Suit.CLUB, Value.JACK)),
-        16: Action(card=Card(Suit.CLUB, Value.QUEEN)),
-        17: Action(card=Card(Suit.CLUB, Value.KING)),
-        18: Action(card=Card(Suit.CLUB, Value.TEN)),
-        19: Action(card=Card(Suit.CLUB, Value.ACE)),
-        # Marriages
-        20: Action(card=Card(Suit.DIAMOND, Value.QUEEN), declare_marriage=d_marriage),
-        21: Action(card=Card(Suit.DIAMOND, Value.KING), declare_marriage=d_marriage),
-        22: Action(card=Card(Suit.SPADE, Value.QUEEN), declare_marriage=s_marriage),
-        23: Action(card=Card(Suit.SPADE, Value.KING), declare_marriage=s_marriage),
-        24: Action(card=Card(Suit.HEART, Value.QUEEN), declare_marriage=h_marriage),
-        25: Action(card=Card(Suit.HEART, Value.KING), declare_marriage=h_marriage),
-        26: Action(card=Card(Suit.CLUB, Value.QUEEN), declare_marriage=c_marriage),
-        27: Action(card=Card(Suit.CLUB, Value.KING), declare_marriage=c_marriage),
-        # Special Actions
-        28: Action(swap_trump=True),
-        29: Action(close_deck=True),
-    }
 
     # Cards
     @staticmethod
@@ -189,7 +153,7 @@ class IOHelpers:
         is_legal = False
         return_action = None
 
-        output_action = IOHelpers.output_actions[i]
+        output_action = ALL_GAME_ACTIONS[i]
         for action in legal_actions:
             if output_action == action:
                 is_legal = True
@@ -199,18 +163,12 @@ class IOHelpers:
         return is_legal, return_action
 
     @staticmethod
-    def get_index_for_action(action):
-        for i, output_action in IOHelpers.output_actions.items():
-            if action == output_action:
-                return i
-
-    @staticmethod
     def get_legal_actions(state: MatchState) -> torch.tensor:
         match_controller = MatchController()
         legal_actions = match_controller.get_valid_moves(state=state)
         legal_moves = []
         actions = []
-        for i in range(len(IOHelpers.output_actions)):
+        for i in range(len(ALL_GAME_ACTIONS)):
             is_legal, action = IOHelpers.check_action_legal(i, legal_actions)
             legal_moves.append(is_legal)
             actions.append(action)

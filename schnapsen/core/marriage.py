@@ -34,7 +34,7 @@ class Marriage:
         self.queen = queen
         self.king = king
         self.cards = [queen, king]  # Purely for convenience
-        self.declared_but_not_played = True
+
         self.points = 0  # Set by game
         self.points_awarded = False
 
@@ -54,9 +54,7 @@ class Marriage:
                 self.cards.pop(i)
                 break
 
-        if card_found:
-            self.declared_but_not_played = False
-        else:
+        if not card_found:
             raise ValueError('Invalid card given to marriage')
 
     def card_in_marriage(self, card: Card) -> bool:

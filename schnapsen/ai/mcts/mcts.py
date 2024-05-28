@@ -23,6 +23,7 @@ class Node:
     """A node in a monte carlo tree search."""
     match_controller: MatchController
     state: MatchState
+    root_player: Player
     parent: Node = None
     action_id: int = None
     children: List[Node] = None
@@ -87,7 +88,7 @@ class Node:
         Returns:
             Node: Newly added child.
         """
-        # Sample a child state at random
+        # Sample a child action/state at random
         action_ix = choice(range(len(self.expandable_moves)))
         # Remove and select random action possible moves
         action = self.expandable_moves.pop(action_ix)
@@ -97,7 +98,7 @@ class Node:
         self.match_controller.update_state_with_action(child_state, action)
         # Note that we don't use the match controller to progress game states as we now want random exploration!
         child = Node(match_controller=self.match_controller,
-                     state=child_state, parent=self,
+                     state=child_state, root_player=self.root_player, parent=self,
                      action_id=get_action_index(action))
         self.children.append(child)
         return child
@@ -110,6 +111,10 @@ class Node:
         """
         rollout_state = self.state.copy()
         current_player = self.state.active_player
+        # Update the imperfect knowledge in the state.
+        # Without doing this, we end up exploring states with the knowledge of what's to come which is a naughty
+        # abuse of game state access!
+        self.match_controller.shuffle_imperfect_information(rollout_state, self.root_player)
 
         # Progress the game at random until it ends!
         while True:
@@ -125,7 +130,7 @@ class Node:
                     value *= -1
                 return value
 
-    def backpropagate(self, value: int) -> None:
+    def back_propagate(self, value: int) -> None:
         """Update parent node based on child visit.
 
         Args:
@@ -137,7 +142,7 @@ class Node:
         if self.parent is not None:
             if self.parent.state.active_player != self.state.active_player:
                 value *= -1
-            self.parent.backpropagate(value)
+            self.parent.back_propagate(value)
 
 
 @dataclass
@@ -160,7 +165,7 @@ class MCTS:
             List[float]: A set of win probabilities for each action. This is effectively a policy function that returns
                 win probabilities for each action under ALL_GAME_ACTIONS.
         """
-        root_node = Node(match_controller=MatchController(), state=state)
+        root_node = Node(match_controller=MatchController(), state=state, root_player=state.active_player)
 
         # Traverse our node tree a number of times
         for _ in range(number_of_searches):
@@ -193,8 +198,8 @@ class MCTS:
                     # Simulation
                     value = node.simulate()
 
-            # Backpropagation
-            node.backpropagate(value)
+            # Now a terminal value is determined, update node tree accordingly.
+            node.back_propagate(value)
 
         # return visit_counts
         # This will effectively become a policy now so need to consider all possible game moves even if invalid.
@@ -229,13 +234,14 @@ class MctsPlayer(Player):
         Returns:
             Action: Selected action.
         """
-        mcts_probs = self.mcts.search(state=state, number_of_searches=self.number_of_searches)
-        return ALL_GAME_ACTIONS[np.argmax(mcts_probs)]
+        action_win_probabilities = self.mcts.search(state=state, number_of_searches=self.number_of_searches)
+        return ALL_GAME_ACTIONS[np.argmax(action_win_probabilities)]
 
 
 if __name__ == "__main__":
     # A small test script to see how the number of searches impacts efficacy.
-    for i in range(11):
+    # The BetterPlayer is not great but it's not completely terrible - it should be able to beat it most of the time.
+    for i in [3, 7]:
         nb_searches = 2**i
         mcts_player = MctsPlayer(number_of_searches_per_move=nb_searches)
         better_player = BetterPlayer(name="Betty")

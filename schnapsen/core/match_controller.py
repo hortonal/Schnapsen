@@ -137,6 +137,46 @@ class MatchController:
 
         return legal_actions
 
+    def shuffle_imperfect_information(self, state: MatchState, fixed_player: Player) -> None:
+        """Update the imperfect information game state.
+
+        In this case, it's the content of the deck and the opponents hand.
+
+        This gets complicated by marriages! There could be one or more halves an unplayed marriages floating around.
+
+        TODO: This is generally inefficient but works. Add testing an simplify!
+
+        Args:
+            state (MatchState): Current match state.
+            fixed_player (Player): The player for whom we have fixed knowledge.
+        """
+        other_player = state.get_other_player(fixed_player)
+        other_player_state = state.player_states[other_player]
+
+        all_unknown_cards = []
+        all_unknown_cards.extend(state.deck)
+        all_unknown_cards.extend(other_player_state.hand)
+
+        # Build list of marriage cards in other_player's hand.
+        marriage_cards_in_other_players_hand = []
+        for marriage_info in state.marriages_info.values():
+            # Must use __eq__ here as object reference might be a copy.
+            if other_player == marriage_info["player"]:
+                marriage = marriage_info["marriage"]
+                for card in marriage.cards:
+                    if card in other_player_state.hand:
+                        marriage_cards_in_other_players_hand.append(card)
+
+        # Marriage cards are not unknowns so remove them from the list.
+        [all_unknown_cards.remove(card) for card in marriage_cards_in_other_players_hand]
+
+        # Put the unknown cards back in their respective places.
+        random.shuffle(all_unknown_cards)
+        nb_deck_cards = len(state.deck)
+        state.deck = Deck(all_unknown_cards[:nb_deck_cards])
+        # Keep declared marriage cards in hand.
+        other_player_state.hand = Hand(all_unknown_cards[nb_deck_cards:] + marriage_cards_in_other_players_hand)
+
     def update_state_with_action(self, state: MatchState, action: Action) -> None:
         """Update state object with a given action.
 

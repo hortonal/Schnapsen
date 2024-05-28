@@ -49,4 +49,4 @@ def run_tournament(number_of_matches_per_battle: Optional[int] = 999) -> None:
 
 
 if __name__ == "__main__":
-    run_tournament(number_of_matches_per_battle=100)
+    run_tournament(number_of_matches_per_battle=99)
