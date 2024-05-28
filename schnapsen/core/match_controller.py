@@ -100,8 +100,8 @@ class MatchController:
 
         marriages = current_hand.available_marriages()
         for marriage in marriages:
-            legal_actions.append(Action(card=marriage.queen, declare_marriage=True))
-            legal_actions.append(Action(card=marriage.king, declare_marriage=True))
+            legal_actions.append(Action(card=Card(suit=marriage.suit, value=Value.QUEEN), declare_marriage=True))
+            legal_actions.append(Action(card=Card(suit=marriage.suit, value=Value.KING), declare_marriage=True))
         for card in current_hand:
             legal_actions.append(Action(card=card))
         return legal_actions
@@ -140,10 +140,14 @@ class MatchController:
     def shuffle_imperfect_information(self, state: MatchState, fixed_player: Player) -> None:
         """Update the imperfect information game state.
 
-        In this case, it's the content of the deck and the opponents hand.
+        When running simulations of how a game can play out, we need to be careful to iterate through possible
+        game states as far as unknown game state is concerned. In this case, it's the content of the deck and the
+        opponents hand cannot be known (although with advanced techniques some content should be implied!).
 
-        This gets complicated by marriages! There could be one or more halves an unplayed marriages floating around.
+        This method fixes 1 players hand and shuffles the remaining unknowns from their perspective. This gets a
+        little complicated by marriages as these are potential knowns in their hand.
 
+        TODO: Handle case where opponent has swapped the trump and still holds it in their hand (known information)
         TODO: This is generally inefficient but works. Add testing an simplify!
 
         Args:
@@ -160,10 +164,10 @@ class MatchController:
         # Build list of marriage cards in other_player's hand.
         marriage_cards_in_other_players_hand = []
         for marriage_info in state.marriages_info.values():
-            # Must use __eq__ here as object reference might be a copy.
+            # Must use __eq__ here as object instance/reference might be a copy of the original
             if other_player == marriage_info["player"]:
-                marriage = marriage_info["marriage"]
-                for card in marriage.cards:
+                marriage_suit = marriage_info["marriage"].suit
+                for card in [Card(suit=marriage_suit, value=Value.QUEEN), Card(suit=marriage_suit, value=Value.KING)]:
                     if card in other_player_state.hand:
                         marriage_cards_in_other_players_hand.append(card)
 

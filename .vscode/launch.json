@@ -4,15 +4,14 @@
     "configurations": [
         {
             "name": "Python: Debug Tests",
-            "type": "debugpy", // This used to not work
-            // "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "purpose": [
                 "debug-test"
             ],
             "env": {
-                "PYTEST_ADDOPTS": "--no-cov",
+                "PYTEST_ADDOPTS": "--no-cov",   //Ensure no coverage when debugging to allow break points to be hit.
             },
             "console": "integratedTerminal",
             "justMyCode": true

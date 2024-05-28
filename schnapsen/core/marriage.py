@@ -10,7 +10,7 @@ class Marriage:
     """Marriage class.
 
     This is when a queen and king of the same suit are declared. This is worth 20 points if a non trump is played. and
-    40 points if they of the trump suit.
+    40 points if they of the trump suit. Points are only awarded once the player wins some points.
     """
 
     def __init__(self, queen: Card, king: Card) -> None:
@@ -31,42 +31,8 @@ class Marriage:
             raise ValueError('Invalid marriage - king not a king')
 
         self.suit = queen.suit  # Take suit from a card arbitrarily as we've already checked both are the same suit.
-        self.queen = queen
-        self.king = king
-        self.cards = [queen, king]  # Purely for convenience
-
         self.points = 0  # Set by game
         self.points_awarded = False
-
-    def notify_card_played(self, card: Card) -> None:
-        """Notify object that a card has been played.
-
-        Args:
-            card (Card): The Card being played.
-
-        Raises:
-            ValueError: If card not in Marriage.
-        """
-        card_found = False
-        for i, iter_card in enumerate(self.cards):
-            if iter_card == card:
-                card_found = True
-                self.cards.pop(i)
-                break
-
-        if not card_found:
-            raise ValueError('Invalid card given to marriage')
-
-    def card_in_marriage(self, card: Card) -> bool:
-        """Check if card is in Marriage.
-
-        Args:
-            card (Card): Card to check.
-
-        Returns:
-            bool: True if card is in marriage, False otherwise.
-        """
-        return card in self.cards
 
     def set_points(self, trump_suit: Suit) -> None:
         """Determine and set the value of the Marriage.
@@ -89,4 +55,4 @@ class Marriage:
             bool: True if Marriage instance is equivalent.
         """
         if isinstance(other, Marriage):
-            return self.queen == other.queen and self.king == other.king
+            return self.suit == other.suit

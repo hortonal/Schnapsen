@@ -2,7 +2,9 @@
 
 A python implementation of the classic Austrian card game Schnapsen.
 
-This repo implements the game controller logic, a simple UI and some simple AI to play against.
+This repo implements the game controller logic, a number of bot/AI opponents and a simple UI to play against the bots.
+The real intention of the repo is to focus on opponent/AI methods (see "Building your own Player/Bot" below). The
+best opponent at present is the Monte Carlo Tree Search player.
 
 For more info on the game itself and the rules, see wikipedia: <https://en.wikipedia.org/wiki/Schnapsen>
 
@@ -49,7 +51,8 @@ Basic UI:
 ### Building your own Player/Bot
 
 All players must inherit from the Player class and implement the select action method. For example see the
-RandomPlayer, BetterPlayer or NNSimpleLinearPlayer implementations.
+RandomPlayer, BetterPlayer or NNSimpleLinearPlayer implementations. As discovered with the Monte Carlo Tree Search, you
+need to be careful not to give your bot too much game knowledge (see shuffle_imperfect_information in MatchController!).
 
 ### Test your bot against the competition
 

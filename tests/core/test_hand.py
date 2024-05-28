@@ -72,8 +72,8 @@ class TestHand(TestCase):
 
         marriages = hand.available_marriages()
         assert len(marriages) == 2
-        assert marriages[0].queen == Card(Suit.DIAMOND, Value.QUEEN)
-        assert marriages[1].king == Card(Suit.CLUB, Value.KING)
+        assert marriages[0].suit == Suit.DIAMOND
+        assert marriages[1].suit == Suit.CLUB
 
     def test_available_marriages_no_marriages(self):
         hand = Hand()

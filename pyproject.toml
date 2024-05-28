@@ -16,7 +16,7 @@ dynamic = ["version"]
 
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --cov=schnapsen --cov-fail-under=80"
+addopts = "--strict-markers --cov=schnapsen --cov-fail-under=85"
 testpaths = ["tests"]
 
 [tool.coverage.run]
