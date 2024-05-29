@@ -34,7 +34,7 @@ class Node:
 
     def __post_init__(self) -> None:
         """Initialise node state."""
-        self.expandable_moves = self.match_controller.get_valid_moves(state=self.state)
+        self.expandable_moves = self.match_controller.get_valid_actions(state=self.state)
         self.children = []
 
     def is_fully_expanded(self) -> bool:
@@ -95,7 +95,7 @@ class Node:
 
         # Set up a child state. We setup the game state assuming
         child_state = self.state.copy()
-        self.match_controller.update_state_with_action(child_state, action)
+        self.match_controller.perform_action(child_state, action)
         # Note that we don't use the match controller to progress game states as we now want random exploration!
         child = Node(match_controller=self.match_controller,
                      state=child_state, root_player=self.root_player, parent=self,
@@ -119,9 +119,9 @@ class Node:
         # Progress the game at random until it ends!
         while True:
             # Pick random move
-            action = choice(self.match_controller.get_valid_moves(rollout_state))
+            action = choice(self.match_controller.get_valid_actions(rollout_state))
             # Update game state
-            self.match_controller.update_state_with_action(rollout_state, action)
+            self.match_controller.perform_action(rollout_state, action)
             # Stop if/when we have a winner
             value, is_terminal = rollout_state.normalised_value_is_terminal()
             if is_terminal:
@@ -153,9 +153,6 @@ class MCTS:
 
     def search(self, state: MatchState, number_of_searches: int) -> List[float]:
         """Explore problem space with Monte Carlo Tree Search.
-
-        TODO - consider what happens when the number of searches exhausts the play space. At present I believe
-        nodes are just revisited reinforcing the strongest (?) choice.
 
         Args:
             state (MatchState): Current match state.

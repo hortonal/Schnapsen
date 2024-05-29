@@ -165,7 +165,7 @@ class IOHelpers:
     @staticmethod
     def get_legal_actions(state: MatchState) -> torch.tensor:
         match_controller = MatchController()
-        legal_actions = match_controller.get_valid_moves(state=state)
+        legal_actions = match_controller.get_valid_actions(state=state)
         legal_moves = []
         actions = []
         for i in range(len(ALL_GAME_ACTIONS)):

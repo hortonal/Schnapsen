@@ -16,7 +16,10 @@ from schnapsen.core.state import MatchState
 
 
 class MatchController:
-    """Core game controller object."""
+    """Core game controller object.
+
+    Note: This does not maintain state, it contains to logic initialise and progress game states give actions.
+    """
 
     def __init__(self) -> None:
         """Create match controller."""
@@ -65,14 +68,11 @@ class MatchController:
         state.round_winner_match_points = 0
         state.marriages_info = {}
         self._deal(state)
-        # if isinstance(state.player_with_1st_deal, MatchController):
-        #     pass
-        # if isinstance(state.active_player, MatchController):
-        #     pass
+
         state.leading_player = state.player_with_1st_deal
         state.active_player = state.leading_player
 
-    def get_valid_moves(self, state: MatchState) -> List[Action]:
+    def get_valid_actions(self, state: MatchState) -> List[Action]:
         """Return valid moves for active player.
 
         Args:
@@ -181,8 +181,10 @@ class MatchController:
         # Keep declared marriage cards in hand.
         other_player_state.hand = Hand(all_unknown_cards[nb_deck_cards:] + marriage_cards_in_other_players_hand)
 
-    def update_state_with_action(self, state: MatchState, action: Action) -> None:
-        """Update state object with a given action.
+    def perform_action(self, state: MatchState, action: Action) -> None:
+        """Update match state object with a given action.
+
+        i.e. play a move!
 
         Args:
             state (MatchState): State to act upon.
@@ -221,27 +223,6 @@ class MatchController:
         if not is_leader and state.round_winner is None:
             self._end_of_hand(state)
 
-    @staticmethod
-    def play_automated_match(player_1: Player, player_2: Player) -> MatchState:
-        """Progress match/game state automatically.
-
-        Args:
-            player_1 (Player): First player.
-            player_2 (Player): Second player.
-
-        Returns:
-            MatchState: Match state including results.
-        """
-        controller = MatchController()
-        state = controller.get_new_match_state(player_1=player_1, player_2=player_2)
-        while state.match_winner is None:
-            controller.reset_round_state(state=state)
-            while state.round_winner is None:
-                if isinstance(state.active_player, MatchController):
-                    pass
-                controller.progress_automated_actions(state)
-        return state
-
     def progress_automated_actions(self, state: MatchState) -> None:
         """Progress automated actions until no more automated actions exist or the game finishes.
 
@@ -250,9 +231,9 @@ class MatchController:
         """
         while state.active_player.automated and state.round_winner is None:
             self._logger.log(logging.DEBUG, 'performing next AI action')
-            legal_actions = self.get_valid_moves(state=state)
+            legal_actions = self.get_valid_actions(state=state)
             if len(legal_actions) > 0:
-                self.update_state_with_action(state, state.active_player.select_action(state, legal_actions))
+                self.perform_action(state, state.active_player.select_action(state, legal_actions))
 
     def _end_of_hand(self, state: MatchState) -> None:
         # Determine hand winner. Start by assuming the leader wins then handle cases where this isn't true

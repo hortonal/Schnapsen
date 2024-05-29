@@ -5,6 +5,7 @@ from typing import Optional
 
 from schnapsen.core.match_controller import MatchController
 from schnapsen.core.player import Player
+from schnapsen.core.state import MatchState
 
 
 @dataclass
@@ -26,6 +27,25 @@ class Results():
         return f"{self.player1} {self.player1_wins} : {self.player2} {self.player2_wins}"
 
 
+def play_automated_match(player_1: Player, player_2: Player) -> MatchState:
+    """Progress match/game state automatically.
+
+    Args:
+        player_1 (Player): First player.
+        player_2 (Player): Second player.
+
+    Returns:
+        MatchState: Match state including results.
+    """
+    controller = MatchController()
+    state = controller.get_new_match_state(player_1=player_1, player_2=player_2)
+    while state.match_winner is None:
+        controller.reset_round_state(state=state)
+        while state.round_winner is None:
+            controller.progress_automated_actions(state)
+    return state
+
+
 def play_automated_matches(player_1: Player, player_2: Player, number_of_matches: Optional[int] = 999) -> Results:
     """Play games automatically (assuming players are both automatable).
 
@@ -40,13 +60,11 @@ def play_automated_matches(player_1: Player, player_2: Player, number_of_matches
     """
     logger = logging.getLogger()
 
-    match_controller = MatchController()
-
     player_1_wins = 0
     player_2_wins = 0
 
     for _ in range(number_of_matches):
-        state = match_controller.play_automated_match(player_1=player_1, player_2=player_2)
+        state = play_automated_match(player_1=player_1, player_2=player_2)
 
         if state.match_winner is player_1:
             player_1_wins += 1

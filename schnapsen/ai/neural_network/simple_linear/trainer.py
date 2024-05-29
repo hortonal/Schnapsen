@@ -215,7 +215,7 @@ class Trainer:
         self.actions_selected += 1
 
         if sample > eps_threshold:
-            action = random.choice(self.match_controller.get_valid_moves(self.match_state))
+            action = random.choice(self.match_controller.get_valid_actions(self.match_state))
             i = get_action_index(action=action)
             return torch.tensor([i], dtype=torch.long), action
         else:
@@ -230,7 +230,7 @@ class Trainer:
         action_id, action = self.select_action(state)
 
         # Apply action and perform any opponent actions. I.e. continue game until our turn to act
-        self.match_controller.update_state_with_action(self.match_state, action)
+        self.match_controller.perform_action(self.match_state, action)
         self.match_controller.progress_automated_actions(self.match_state)
 
         next_state = IOHelpers.create_input_from_game_state(self.match_state)

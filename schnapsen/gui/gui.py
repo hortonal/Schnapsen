@@ -180,7 +180,7 @@ class GUI:
     def _update_deck(self) -> None:
         can_swamp_trump = False
         can_close_deck = False
-        for action in self.match_controller.get_valid_moves(self.match_state):
+        for action in self.match_controller.get_valid_actions(self.match_state):
             if action.swap_trump:
                 can_swamp_trump = True
             if action.close_deck:
@@ -213,7 +213,7 @@ class GUI:
                 self._player_cards[i].update_card(card)
                 self._player_cards[i].play_button['state'] = 'disable'
                 self._player_cards[i].play_marriage_button['state'] = 'disable'
-                for action in self.match_controller.get_valid_moves(self.match_state):
+                for action in self.match_controller.get_valid_actions(self.match_state):
                     if action.card == card:
                         self._player_cards[i].play_button['state'] = 'normal'
                         if action.declare_marriage:
@@ -258,7 +258,7 @@ class GUI:
         ui_card = self._player_cards[index]
 
         next_action = None
-        for action in self.match_controller.get_valid_moves(self.match_state):
+        for action in self.match_controller.get_valid_actions(self.match_state):
             if action.card == ui_card.card and action.declare_marriage:
                 next_action = action
                 break
@@ -268,7 +268,7 @@ class GUI:
     def _play_card(self, index: int) -> None:
         ui_card = self._player_cards[index]
         next_action = None
-        for action in self.match_controller.get_valid_moves(self.match_state):
+        for action in self.match_controller.get_valid_actions(self.match_state):
             if action.card == ui_card.card and not action.declare_marriage:
                 next_action = action
                 break
@@ -276,7 +276,7 @@ class GUI:
 
     def _close_deck(self) -> None:
         next_action = None
-        for action in self.match_controller.get_valid_moves(self.match_state):
+        for action in self.match_controller.get_valid_actions(self.match_state):
             if action.close_deck:
                 next_action = action
                 break
@@ -285,7 +285,7 @@ class GUI:
 
     def _swap_trump(self) -> None:
         next_action = None
-        for action in self.match_controller.get_valid_moves(self.match_state):
+        for action in self.match_controller.get_valid_actions(self.match_state):
             if action.swap_trump:
                 next_action = action
                 break
@@ -299,7 +299,7 @@ class GUI:
                 'Title', 'Action is not valid - try something else...')
         else:
 
-            self.match_controller.update_state_with_action(state=self.match_state, action=action)
+            self.match_controller.perform_action(state=self.match_state, action=action)
             self._handle_ai_actions()
             self._update_screen()
 

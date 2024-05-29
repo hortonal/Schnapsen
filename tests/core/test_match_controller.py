@@ -2,7 +2,6 @@ import random
 
 import pytest
 
-from schnapsen.ai.random_player import RandomPlayer
 from schnapsen.core.action import Action
 from schnapsen.core.card import Card
 from schnapsen.core.card import Suit
@@ -10,17 +9,6 @@ from schnapsen.core.card import Value
 from schnapsen.core.deck import Deck
 from schnapsen.core.match_controller import MatchController
 from schnapsen.core.player import Player
-
-
-def test_play_automated():
-    # Play some games at random. 10 games seems to cover almost all game actions and finds glaring syntax bugs.
-    random.seed(0)
-
-    match_controller = MatchController()
-
-    for _ in range(10):
-        state = match_controller.play_automated_match(player_1=RandomPlayer("Randy1"), player_2=RandomPlayer("Randy2"))
-        assert isinstance(state.match_winner, Player)
 
 
 def test_regression():
@@ -76,9 +64,9 @@ def test_regression():
     assert len(state.deck) == 9
 
     # Now start performing actions
-    match_controller.update_state_with_action(state=state, action=Action(card=Card(Suit.DIAMOND, Value.ACE)))
+    match_controller.perform_action(state=state, action=Action(card=Card(Suit.DIAMOND, Value.ACE)))
     assert Card(Suit.DIAMOND, Value.ACE) not in player_1_hand
-    match_controller.update_state_with_action(state=state, action=Action(card=Card(Suit.SPADE, Value.ACE)))
+    match_controller.perform_action(state=state, action=Action(card=Card(Suit.SPADE, Value.ACE)))
     # Trump beats non-trump
     assert state.hand_winner == player_2
     # Winner picks up first, so gets the queen of diamods
@@ -88,12 +76,14 @@ def test_regression():
 
     # What happens if we try and lead the wrong player's action.
     with pytest.raises(ValueError, match="not in hand"):
-        match_controller.update_state_with_action(state=state, action=Action(card=Card(Suit.SPADE, Value.KING)))
+        match_controller.perform_action(state=state, action=Action(card=Card(Suit.SPADE, Value.KING)))
 
-    # TODO: Cards of same suit played
-    # TODO: Cards of different suits played (no trump)
-    # TODO: Trump Marriage
-    # TODO: Normal Marriage
-    # TODO: Swap Trump
-    # TODO: Close Deck
-    # TODO: The various match point scenarios
+    # TODO: Now game state is independent of the match controller the following action tests should be simple to break
+    # into individual tests
+    # Cards of same suit played
+    # Cards of different suits played (no trump)
+    # Trump Marriage
+    # Normal Marriage
+    # Swap Trump
+    # Close Deck
+    # The various match point scenarios
